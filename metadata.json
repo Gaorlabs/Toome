@@ -1,0 +1,5 @@
+{
+  "name": "Toome",
+  "description": "Plataforma de análisis multi-compañía con gestión de accesos y visualización de datos Odoo.",
+  "requestFramePermissions": []
+}
