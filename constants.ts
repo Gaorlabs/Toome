@@ -3,28 +3,42 @@ import { KPI, SalesData, InventoryItem, ProductPerformance, CompanyContext } fro
 export const MOCK_COMPANIES: CompanyContext[] = [
   {
     id: 'c1',
-    name: 'TechSolutions Global',
+    name: 'Vida Group S.A.C.',
     branches: [
-      { id: 'b1', name: 'Sede Central - Madrid' },
-      { id: 'b2', name: 'Sucursal Norte - Barcelona' },
-      { id: 'b3', name: 'Sucursal Sur - Sevilla' },
+      { id: 'b1', name: 'Sede Principal - Lima' },
+      { id: 'b2', name: 'Almacén Central' },
     ]
   },
   {
     id: 'c2',
-    name: 'Retail Masters S.A.',
+    name: 'Vida Retail',
     branches: [
-      { id: 'b4', name: 'Tienda Flagship' },
-      { id: 'b5', name: 'Outlet Center' },
+      { id: 'b3', name: 'Tienda Miraflores' },
+      { id: 'b4', name: 'Tienda San Isidro' },
+    ]
+  },
+  {
+    id: 'c3',
+    name: 'IGP Corp',
+    branches: [
+      { id: 'b5', name: 'Oficinas IGP' },
+      { id: 'b6', name: 'Planta de Producción' },
+    ]
+  },
+  {
+    id: 'c4',
+    name: 'IGP Logistics',
+    branches: [
+      { id: 'b7', name: 'Centro de Distribución' },
     ]
   }
 ];
 
 export const MOCK_KPIS: KPI[] = [
-  { label: 'Ventas Totales', value: '€124,592.00', change: 12.5, trend: 'up', icon: 'DollarSign' },
+  { label: 'Ventas Totales', value: 'S/. 124,592.00', change: 12.5, trend: 'up', icon: 'DollarSign' },
   { label: 'Margen Global', value: '38.2%', change: -1.2, trend: 'down', icon: 'PieChart' },
-  { label: 'Ticket Promedio', value: '€45.20', change: 4.8, trend: 'up', icon: 'CreditCard' },
-  { label: 'Alertas Stock', value: '5 Críticos', change: 2, trend: 'down', icon: 'AlertTriangle' }, // Changed to reflect Inventory focus
+  { label: 'Ticket Promedio', value: 'S/. 45.20', change: 4.8, trend: 'up', icon: 'CreditCard' },
+  { label: 'Alertas Stock', value: '5 Críticos', change: 2, trend: 'down', icon: 'AlertTriangle' }, 
 ];
 
 export const MOCK_SALES_DATA: SalesData[] = [

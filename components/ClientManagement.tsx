@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { ClientAccess, OdooConnection, AppModule } from '../types';
-import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard } from 'lucide-react';
+import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Building2, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface ClientManagementProps {
   clients: ClientAccess[];
-  connections: OdooConnection[]; // Now receiving real Odoo Connections
+  connections: OdooConnection[]; // Now receiving real Odoo Connections with Companies
   onCreateClient: (client: Omit<ClientAccess, 'id' | 'createdAt'>) => void;
   onDeleteClient: (id: string) => void;
 }
@@ -14,7 +14,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   
   // Form State
   const [newClientName, setNewClientName] = useState('');
-  const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]); // Tracking selected Company IDs
   const [selectedModules, setSelectedModules] = useState<AppModule[]>(['DASHBOARD']);
   
   const generateKey = () => {
@@ -30,26 +30,47 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Derived: Find which connection IDs are relevant based on selected companies
+    const assignedConnIds = connections
+        .filter(conn => conn.companies.some(comp => selectedCompanyIds.includes(comp.id)))
+        .map(conn => conn.id);
+
     onCreateClient({
       name: newClientName,
       accessKey: generatedKey,
-      assignedConnectionIds: selectedConnections,
+      assignedConnectionIds: assignedConnIds,
+      allowedCompanyIds: selectedCompanyIds,
       allowedModules: selectedModules
     });
     // Reset Form
     setNewClientName('');
-    setSelectedConnections([]);
+    setSelectedCompanyIds([]);
     setSelectedModules(['DASHBOARD']);
     setGeneratedKey(generateKey());
     setShowForm(false);
   };
 
-  const toggleConnection = (id: string) => {
-    if (selectedConnections.includes(id)) {
-      setSelectedConnections(selectedConnections.filter(c => c !== id));
+  const toggleCompany = (companyId: string) => {
+    if (selectedCompanyIds.includes(companyId)) {
+      setSelectedCompanyIds(selectedCompanyIds.filter(id => id !== companyId));
     } else {
-      setSelectedConnections([...selectedConnections, id]);
+      setSelectedCompanyIds([...selectedCompanyIds, companyId]);
     }
+  };
+
+  const toggleAllCompaniesInConnection = (connection: OdooConnection) => {
+      const allIds = connection.companies.map(c => c.id);
+      const allSelected = allIds.every(id => selectedCompanyIds.includes(id));
+
+      if (allSelected) {
+          // Deselect all
+          setSelectedCompanyIds(selectedCompanyIds.filter(id => !allIds.includes(id)));
+      } else {
+          // Select all (merge uniquely)
+          const newSet = new Set([...selectedCompanyIds, ...allIds]);
+          setSelectedCompanyIds(Array.from(newSet));
+      }
   };
 
   const toggleModule = (module: AppModule) => {
@@ -77,7 +98,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Gestión de Accesos</h2>
-          <p className="text-gray-500 text-sm">Asigna usuarios a conexiones Odoo específicas y define sus permisos.</p>
+          <p className="text-gray-500 text-sm">Crea perfiles con acceso limitado a compañías específicas.</p>
         </div>
         <button 
           onClick={() => setShowForm(!showForm)}
@@ -90,8 +111,8 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
 
       {showForm && (
         <div className="bg-white p-6 rounded-xl shadow-lg border border-odoo-primary/20 mb-6">
-          <h3 className="font-bold text-lg mb-6 text-gray-800 border-b pb-2">Configurar Perfil de Acceso</h3>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <h3 className="font-bold text-lg mb-6 text-gray-800 border-b pb-2">Configurar Perfil Multi-Compañía</h3>
+          <form onSubmit={handleSubmit} className="space-y-8">
             
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -127,43 +148,70 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
               </div>
             </div>
 
-            {/* Connection Assignment */}
+            {/* Connection Assignment Tree */}
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
                  <Database size={16} /> 
-                 Asignar Conexiones (Empresas/Sucursales)
+                 Selección de Compañías (Scope de Datos)
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {connections.map(conn => (
-                  <div 
-                    key={conn.id}
-                    onClick={() => toggleConnection(conn.id)}
-                    className={`
-                      cursor-pointer border rounded-lg p-3 flex items-center space-x-3 transition-all
-                      ${selectedConnections.includes(conn.id) 
-                        ? 'border-odoo-primary bg-odoo-primary/5 ring-1 ring-odoo-primary' 
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }
-                    `}
-                  >
-                    <div className={`
-                      w-5 h-5 rounded border flex items-center justify-center transition-colors
-                      ${selectedConnections.includes(conn.id) ? 'bg-odoo-primary border-odoo-primary text-white' : 'border-gray-300 bg-white'}
-                    `}>
-                      {selectedConnections.includes(conn.id) && <CheckSquare size={14} />}
-                    </div>
-                    <div>
-                        <span className="block text-sm font-medium text-gray-800">{conn.name}</span>
-                        <span className="block text-xs text-gray-500">{conn.db}</span>
-                    </div>
-                  </div>
-                ))}
-                {connections.length === 0 && (
-                    <div className="col-span-3 text-sm text-gray-400 italic p-2 border border-dashed rounded">
-                        No hay conexiones Odoo configuradas. Ve al menú "Conexiones Odoo" primero.
-                    </div>
-                )}
+              
+              <div className="grid grid-cols-1 gap-4 border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+                  {connections.map(conn => (
+                      <div key={conn.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                          {/* Connection Header */}
+                          <div className="bg-gray-50 p-3 flex items-center justify-between border-b border-gray-100">
+                              <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${conn.status === 'CONNECTED' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                  <span className="font-bold text-sm text-gray-700">{conn.name}</span>
+                                  <span className="text-xs text-gray-400">({conn.db})</span>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => toggleAllCompaniesInConnection(conn)}
+                                className="text-xs text-odoo-secondary font-medium hover:underline"
+                              >
+                                  Seleccionar Todo
+                              </button>
+                          </div>
+                          
+                          {/* Companies List */}
+                          <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {conn.companies.map(comp => {
+                                  const isSelected = selectedCompanyIds.includes(comp.id);
+                                  return (
+                                      <div 
+                                        key={comp.id}
+                                        onClick={() => toggleCompany(comp.id)}
+                                        className={`
+                                            cursor-pointer flex items-center p-2 rounded-md transition-all border
+                                            ${isSelected ? 'bg-odoo-primary/5 border-odoo-primary/30' : 'hover:bg-gray-50 border-transparent'}
+                                        `}
+                                      >
+                                          <div className={`
+                                              w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors
+                                              ${isSelected ? 'bg-odoo-primary border-odoo-primary text-white' : 'border-gray-300 bg-white'}
+                                          `}>
+                                              {isSelected && <CheckSquare size={10} />}
+                                          </div>
+                                          <div>
+                                              <span className={`text-sm ${isSelected ? 'font-semibold text-odoo-primary' : 'text-gray-600'}`}>{comp.name}</span>
+                                          </div>
+                                      </div>
+                                  )
+                              })}
+                              {conn.companies.length === 0 && (
+                                  <div className="p-2 text-xs text-gray-400 italic">No se detectaron compañías en esta base de datos.</div>
+                              )}
+                          </div>
+                      </div>
+                  ))}
+                  {connections.length === 0 && (
+                      <div className="text-center p-4 text-gray-400 italic">No hay bases de datos conectadas.</div>
+                  )}
               </div>
+              <p className="text-xs text-gray-500 mt-2">
+                  * El usuario solo podrá ver datos de las compañías seleccionadas. Si selecciona compañías de diferentes bases de datos, podrá alternar entre ellas en el Dashboard.
+              </p>
             </div>
 
             {/* Module Permissions */}
@@ -206,7 +254,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
               </button>
               <button 
                 type="submit" 
-                disabled={!newClientName || selectedConnections.length === 0}
+                disabled={!newClientName || selectedCompanyIds.length === 0}
                 className="px-6 py-2 bg-odoo-secondary hover:bg-teal-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Crear Cliente
@@ -223,8 +271,8 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
             <tr>
               <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Cliente / Rol</th>
               <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Clave</th>
-              <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Conexiones Asignadas</th>
-              <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Módulos Habilitados</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Compañías Asignadas</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Módulos</th>
               <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Acciones</th>
             </tr>
           </thead>
@@ -249,14 +297,23 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col gap-1">
-                    {client.assignedConnectionIds.map((cid, i) => {
-                       const conn = connections.find(c => c.id === cid);
-                       return (
-                         <div key={i} className="flex items-center gap-1 text-xs text-gray-600">
-                           <Database size={10} className="text-gray-400" />
-                           <span className={!conn ? 'text-red-400 italic' : ''}>{conn ? conn.name : 'Conexión eliminada'}</span>
-                         </div>
-                       )
+                    {/* Helper to show companies grouped by DB */}
+                    {connections.map(conn => {
+                        const clientCompaniesInThisConn = conn.companies.filter(c => client.allowedCompanyIds.includes(c.id));
+                        if (clientCompaniesInThisConn.length === 0) return null;
+                        
+                        return (
+                            <div key={conn.id} className="mb-1">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase">{conn.name}:</span>
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {clientCompaniesInThisConn.map(c => (
+                                        <span key={c.id} className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded border border-gray-200">
+                                            {c.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )
                     })}
                   </div>
                 </td>

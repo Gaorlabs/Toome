@@ -1,3 +1,4 @@
+
 export interface KPI {
   label: string;
   value: string;
@@ -62,8 +63,9 @@ export interface ClientAccess {
   id: string;
   name: string;
   accessKey: string;
-  assignedConnectionIds: string[]; // IDs of OdooConnections they can access
-  allowedModules: AppModule[]; // Features they can see (e.g. Sales, Inventory)
+  assignedConnectionIds: string[]; // IDs of OdooConnections they have access to (derived)
+  allowedCompanyIds: string[]; // NEW: Specific Company IDs (e.g. 'c1', 'c2')
+  allowedModules: AppModule[]; 
   createdAt: string;
 }
 
@@ -75,6 +77,12 @@ export interface ConnectionConfig {
   isConfigured: boolean;
 }
 
+export interface OdooCompany {
+  id: string;
+  name: string;
+  currency: string;
+}
+
 export interface OdooConnection {
   id: string;
   name: string; // Friendly name (e.g. "Sucursal Norte")
@@ -84,6 +92,7 @@ export interface OdooConnection {
   apiKey: string;
   status: 'CONNECTED' | 'ERROR' | 'PENDING';
   lastCheck: string | null;
+  companies: OdooCompany[]; // NEW: List of companies inside this DB
 }
 
 export type UserRole = 'ADMIN' | 'CLIENT';

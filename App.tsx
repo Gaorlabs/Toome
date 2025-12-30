@@ -13,30 +13,68 @@ export default function App() {
   // Auth State
   const [session, setSession] = useState<UserSession | null>(null);
   
-  // App Data State
+  // Connection Data State (Now with Companies)
+  const [connections, setConnections] = useState<OdooConnection[]>([
+      { 
+          id: 'conn_vida', 
+          name: 'Vida Master (Multi-Company)', 
+          url: 'https://vida.facturaclic.pe/', 
+          db: 'vida_master', 
+          user: 'soporte@facturaclic.pe', 
+          apiKey: '7a823daf061832dd8f01876a714da94f7e9c9355', 
+          status: 'CONNECTED', 
+          lastCheck: new Date().toLocaleString(),
+          companies: [
+            { id: 'vida_c1', name: 'Vida Group S.A.C.', currency: 'PEN' },
+            { id: 'vida_c2', name: 'Vida Retail', currency: 'PEN' },
+            { id: 'vida_c3', name: 'Vida Importaciones', currency: 'USD' }
+          ]
+      },
+      { 
+          id: 'conn_igp', 
+          name: 'IGP Master (Multi-Company)', 
+          url: 'https://igp.facturaclic.pe/', 
+          db: 'igp_master', 
+          user: 'soporte@facturaclic.pe', 
+          apiKey: '6d50304b768a9e09de0978cf46155769f9410809', 
+          status: 'CONNECTED', 
+          lastCheck: new Date().toLocaleString(),
+          companies: [
+            { id: 'igp_c1', name: 'IGP Corp', currency: 'PEN' },
+            { id: 'igp_c2', name: 'IGP Logistics', currency: 'USD' }
+          ]
+      }
+  ]);
+
+  // App Data State (Clients now have allowedCompanyIds)
   const [clients, setClients] = useState<ClientAccess[]>([
     { 
         id: '1', 
-        name: 'Demo Gerente', 
-        accessKey: 'DEMO-1234', 
-        assignedConnectionIds: ['conn1'], 
-        allowedModules: ['DASHBOARD', 'SALES', 'PRODUCTS', 'REPORTS'],
+        name: 'Gerente Vida (Solo Group)', 
+        accessKey: 'VIDA-2025', 
+        assignedConnectionIds: ['conn_vida'], 
+        allowedCompanyIds: ['vida_c1'], 
+        allowedModules: ['DASHBOARD', 'SALES', 'PRODUCTS', 'REPORTS', 'INVENTORY'],
+        createdAt: new Date().toISOString() 
+    },
+    { 
+        id: '2', 
+        name: 'Gerente IGP', 
+        accessKey: 'IGP-2025', 
+        assignedConnectionIds: ['conn_igp'], 
+        allowedCompanyIds: ['igp_c1', 'igp_c2'],
+        allowedModules: ['DASHBOARD', 'SALES', 'INVENTORY'],
+        createdAt: new Date().toISOString() 
+    },
+    { 
+        id: '3', 
+        name: 'Director Corporativo', 
+        accessKey: 'MASTER-2025', 
+        assignedConnectionIds: ['conn_vida', 'conn_igp'], 
+        allowedCompanyIds: ['vida_c1', 'vida_c2', 'vida_c3', 'igp_c1', 'igp_c2'],
+        allowedModules: ['DASHBOARD', 'SALES', 'PRODUCTS', 'REPORTS', 'INVENTORY'],
         createdAt: new Date().toISOString() 
     }
-  ]);
-  
-  // Connection Data State
-  const [connections, setConnections] = useState<OdooConnection[]>([
-      { 
-          id: 'conn1', 
-          name: 'Sede Principal (Demo)', 
-          url: 'https://demo.odoo.com', 
-          db: 'demo_db', 
-          user: 'admin', 
-          apiKey: '****', 
-          status: 'PENDING', 
-          lastCheck: null 
-      }
   ]);
 
   // View State
@@ -45,12 +83,16 @@ export default function App() {
   const [selectedConnection, setSelectedConnection] = useState<OdooConnection | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // LOGIC: Determine which connections are available to the current user
+  // LOGIC: Determine which connections are available to the current user based on allowed companies
   const availableConnections = React.useMemo(() => {
     if (!session) return [];
     if (session.role === 'ADMIN') return connections;
     if (session.role === 'CLIENT' && session.clientData) {
-      return connections.filter(c => session.clientData!.assignedConnectionIds.includes(c.id));
+      // Find connections where the user has at least one allowed company
+      const allowedCompIds = session.clientData.allowedCompanyIds;
+      return connections.filter(conn => 
+        conn.companies.some(comp => allowedCompIds.includes(comp.id))
+      );
     }
     return [];
   }, [session, connections]);
@@ -64,6 +106,16 @@ export default function App() {
         setSelectedConnection(null);
     }
   }, [availableConnections, selectedConnection]);
+
+  // Helper to count visible companies for the current user in the selected connection
+  const getVisibleCompanyCount = () => {
+    if (!selectedConnection || !session) return 0;
+    if (session.role === 'ADMIN') return selectedConnection.companies.length;
+    if (session.role === 'CLIENT' && session.clientData) {
+        return selectedConnection.companies.filter(c => session.clientData!.allowedCompanyIds.includes(c.id)).length;
+    }
+    return 0;
+  };
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -165,7 +217,14 @@ export default function App() {
                    <div className="p-1.5 bg-odoo-primary/10 rounded-lg">
                      <Building size={18} className="text-odoo-primary" />
                    </div>
-                   <span>{selectedConnection ? selectedConnection.name : 'Seleccionar Conexión'}</span>
+                   <div className="text-left leading-tight">
+                       <span className="block">{selectedConnection ? selectedConnection.name : 'Seleccionar Conexión'}</span>
+                       {selectedConnection && (
+                           <span className="text-[10px] text-gray-400 font-normal">
+                               {getVisibleCompanyCount()} Compañías disponibles
+                           </span>
+                       )}
+                   </div>
                    <ChevronDown size={16} className="text-gray-400" />
                </button>
                {/* Dropdown */}
@@ -220,7 +279,7 @@ export default function App() {
                      </div>
                      <div className="hidden md:block text-left">
                          <p className="text-sm font-bold text-gray-800 leading-none mb-1">{session.name}</p>
-                         <p className="text-[11px] text-gray-400 font-medium tracking-wide uppercase">{session.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
+                         <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">{session.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
                      </div>
                      <ChevronDown size={14} className="text-gray-400" />
                  </button>
@@ -280,7 +339,7 @@ export default function App() {
                            <h3 className="text-2xl font-bold text-gray-800 mb-2">Módulo Activado</h3>
                            <p className="text-gray-500 mb-6 leading-relaxed">
                                Tienes permisos para ver <span className="font-bold text-odoo-secondary">{currentView === ViewMode.CUSTOMERS ? 'Ventas' : currentView}</span>.
-                               <br/>Esta vista es un demo estático visual.
+                               <br/>Esta vista es un demo estático visual conectado a <b>{selectedConnection?.name}</b>.
                            </p>
                            {selectedConnection && (
                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-odoo-primary/5 text-odoo-primary rounded-xl font-bold text-sm border border-odoo-primary/10">
