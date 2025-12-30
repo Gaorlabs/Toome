@@ -19,13 +19,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
     { id: ViewMode.DASHBOARD, label: 'Dashboard Ejecutivo', icon: LayoutDashboard, module: 'DASHBOARD' as AppModule },
     { id: ViewMode.INVENTORY, label: 'Alertas Inventario', icon: Package, module: 'INVENTORY' as AppModule },
     { id: ViewMode.PRODUCTS, label: 'Análisis Productos', icon: TrendingUp, module: 'PRODUCTS' as AppModule },
-    { id: ViewMode.CUSTOMERS, label: 'Ventas / Clientes', icon: ShoppingCart, module: 'SALES' as AppModule }, // Renamed for clarity
+    { id: ViewMode.CUSTOMERS, label: 'Ventas / Clientes', icon: ShoppingCart, module: 'SALES' as AppModule }, 
     { id: ViewMode.REPORTS, label: 'Reportes', icon: FileText, module: 'REPORTS' as AppModule },
   ];
 
-  // Filter items:
-  // 1. If Admin, show all base items.
-  // 2. If Client, show only items included in allowedModules.
+  // Filter items
   const visibleMenuItems = allMenuItems.filter(item => {
     if (userRole === 'ADMIN') return true;
     if (userRole === 'CLIENT' && allowedModules) {
@@ -34,31 +32,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
     return false;
   });
 
-  // Admin specific items (Always hidden for Client)
   const adminItems = [
     { id: ViewMode.CLIENT_MANAGEMENT, label: 'Gestión de Accesos', icon: ShieldCheck },
     { id: ViewMode.CONNECTION_MANAGEMENT, label: 'Conexiones Odoo', icon: Database },
   ];
 
   return (
-    <div className={`bg-odoo-dark text-white flex flex-col transition-all duration-300 h-screen sticky top-0 ${collapsed ? 'w-16' : 'w-64'}`}>
-      <div className="h-16 flex items-center px-4 border-b border-gray-700 bg-opacity-50 bg-black">
-        {!collapsed && <span className="font-bold text-xl tracking-tight text-white/90">Toome</span>}
-        {collapsed && <BarChart3 className="mx-auto text-odoo-accent" />}
+    <div className={`bg-odoo-dark text-white flex flex-col transition-all duration-500 ease-in-out h-screen sticky top-0 shadow-2xl z-30 ${collapsed ? 'w-20' : 'w-72'}`}>
+      
+      {/* Brand Header */}
+      <div className="h-20 flex items-center justify-center border-b border-white/5 bg-gradient-to-r from-odoo-dark to-[#34495e]">
+        {!collapsed ? (
+            <div className="flex items-center space-x-2 animate-fade-in">
+                <div className="w-8 h-8 rounded-lg bg-odoo-primary flex items-center justify-center shadow-lg shadow-odoo-primary/40">
+                    <BarChart3 size={20} className="text-white" />
+                </div>
+                <span className="font-bold text-2xl tracking-tight text-white/95">Toome</span>
+            </div>
+        ) : (
+            <div className="w-10 h-10 rounded-xl bg-odoo-primary flex items-center justify-center shadow-lg shadow-odoo-primary/40 animate-slide-up">
+                <BarChart3 size={24} className="text-white" />
+            </div>
+        )}
       </div>
 
-      <div className="flex-1 py-4 overflow-y-auto custom-scrollbar">
-        {collapsed ? (
-             <div className="flex justify-center mb-6">
-                 <div className="w-8 h-8 rounded bg-odoo-primary flex items-center justify-center text-xs font-bold">T</div>
-             </div>
-        ) : (
-            <div className="px-4 mb-6">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Menú Principal</p>
+      <div className="flex-1 py-6 overflow-y-auto custom-scrollbar flex flex-col gap-1">
+        
+        {!collapsed && (
+            <div className="px-6 mb-4 animate-slide-in-right">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Menú Principal</p>
             </div>
         )}
 
-        <nav className="space-y-1">
+        <nav className="space-y-1 px-3">
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -66,50 +72,60 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center px-4 py-3 text-sm font-medium transition-colors duration-150
+                className={`w-full flex items-center px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group relative
                   ${isActive 
-                    ? 'bg-white/10 text-white border-l-4 border-odoo-accent' 
-                    : 'text-gray-400 hover:bg-white/5 hover:text-white border-l-4 border-transparent'
+                    ? 'bg-gradient-to-r from-odoo-primary to-[#835677] text-white shadow-lg shadow-odoo-primary/25 translate-x-1' 
+                    : 'text-gray-400 hover:bg-white/5 hover:text-white hover:translate-x-1'
                   }
                   ${collapsed ? 'justify-center px-0' : ''}
                 `}
                 title={collapsed ? item.label : ''}
               >
-                <Icon size={20} className={`${collapsed ? '' : 'mr-3'} ${isActive ? 'text-odoo-accent' : ''}`} />
-                {!collapsed && <span>{item.label}</span>}
+                <Icon 
+                    size={22} 
+                    className={`transition-transform duration-300 ${collapsed ? '' : 'mr-3'} ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} 
+                    strokeWidth={isActive ? 2.5 : 2}
+                />
+                {!collapsed && <span className="tracking-wide">{item.label}</span>}
+                
+                {/* Active Indicator Dot for Collapsed Mode */}
+                {collapsed && isActive && (
+                    <div className="absolute right-2 top-2 w-2 h-2 bg-odoo-accent rounded-full shadow-glow"></div>
+                )}
               </button>
             );
           })}
         </nav>
 
         {!collapsed && userRole === 'ADMIN' && (
-            <div className="mt-8">
-                <div className="px-4 mb-2">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Administración</p>
+            <div className="mt-8 animate-slide-in-right delay-100">
+                <div className="px-6 mb-4">
+                    <div className="h-px w-full bg-white/5 mb-4"></div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Administración</p>
                 </div>
-                {adminItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.id;
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => onNavigate(item.id)}
-                            className={`w-full flex items-center px-4 py-3 text-sm font-medium transition-colors duration-150
-                            ${isActive 
-                                ? 'bg-odoo-secondary/20 text-white border-l-4 border-odoo-secondary' 
-                                : 'text-gray-400 hover:bg-white/5 hover:text-white border-l-4 border-transparent'
-                            }
-                            `}
-                        >
-                            <Icon size={20} className="mr-3" />
-                            <span>{item.label}</span>
-                        </button>
-                    );
-                })}
+                <div className="px-3 space-y-1">
+                    {adminItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentView === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => onNavigate(item.id)}
+                                className={`w-full flex items-center px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group
+                                ${isActive 
+                                    ? 'bg-odoo-secondary/20 text-odoo-accent border border-odoo-secondary/20 shadow-lg shadow-odoo-secondary/10' 
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white hover:translate-x-1'
+                                }
+                                `}
+                            >
+                                <Icon size={20} className={`mr-3 transition-colors ${isActive ? 'text-odoo-accent' : 'group-hover:text-white'}`} />
+                                <span>{item.label}</span>
+                            </button>
+                        );
+                    })}
 
-                <div className="mt-4 px-4">
-                    <button className="w-full flex items-center px-0 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors">
-                        <Server size={18} className="mr-3" />
+                    <button className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-500 hover:text-white transition-colors mt-2 group">
+                        <Server size={18} className="mr-3 group-hover:animate-pulse" />
                         <span>Logs de Servidor</span>
                     </button>
                 </div>
@@ -117,21 +133,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
         )}
       </div>
 
-      <div className="p-4 border-t border-gray-700 space-y-2">
+      <div className="p-4 border-t border-white/5 bg-black/20 backdrop-blur-sm">
         <button 
             onClick={onLogout}
-            className="flex items-center justify-center w-full p-2 text-red-400 hover:text-white hover:bg-red-500/20 rounded transition-colors"
+            className="flex items-center justify-center w-full p-3 text-red-400 hover:text-white hover:bg-red-500/20 rounded-xl transition-all duration-300 group"
             title="Cerrar Sesión"
         >
-            <LogOut size={20} />
-            {!collapsed && <span className="ml-2 text-sm">Salir</span>}
+            <LogOut size={20} className="group-hover:scale-110 transition-transform" />
+            {!collapsed && <span className="ml-3 text-sm font-medium">Cerrar Sesión</span>}
         </button>
         <button 
             onClick={toggleCollapse}
-            className="flex items-center justify-center w-full p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+            className="flex items-center justify-center w-full mt-2 p-2 text-gray-500 hover:text-white rounded-lg transition-colors"
         >
-            <ChevronLeft size={20} className={`transform transition-transform ${collapsed ? 'rotate-180' : ''}`} />
-            {!collapsed && <span className="ml-2 text-sm">Colapsar</span>}
+            <ChevronLeft size={20} className={`transform transition-transform duration-500 ${collapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
     </div>

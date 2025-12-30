@@ -22,6 +22,27 @@
                 dark: '#2B3D51', // Dark Blue/Grey
                 light: '#F9F9F9',
                 accent: '#00A09D',
+                surface: '#FFFFFF',
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.6s ease-out forwards',
+              'slide-up': 'slideUp 0.6s ease-out forwards',
+              'slide-in-right': 'slideInRight 0.5s ease-out forwards',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              slideInRight: {
+                '0%': { opacity: '0', transform: 'translateX(-20px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
               }
             }
           }
@@ -29,30 +50,59 @@
       }
     </script>
     <style>
-      /* Custom scrollbar for table containers */
+      /* Base Background */
+      body {
+        background-color: #f3f4f6;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(113, 75, 103, 0.08) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(1, 126, 132, 0.08) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(113, 75, 103, 0.05) 0px, transparent 50%);
+        background-attachment: fixed;
+      }
+
+      /* Custom scrollbar */
       .custom-scrollbar::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: transparent;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 4px;
+        background: #cbd5e1;
+        border-radius: 10px;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
+        background: #94a3b8;
       }
       
-      .animate-fade-in {
-        animation: fadeIn 0.5s ease-out;
+      /* Glassmorphism Utility */
+      .glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+
+      .glass-card {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
       
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+      .glass-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border-color: rgba(113, 75, 103, 0.2);
       }
+
+      /* Staggered Animation Delays */
+      .delay-100 { animation-delay: 100ms; }
+      .delay-200 { animation-delay: 200ms; }
+      .delay-300 { animation-delay: 300ms; }
+      .delay-400 { animation-delay: 400ms; }
     </style>
   <script type="importmap">
 {
@@ -66,7 +116,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-100 text-gray-800 font-sans antialiased">
-    <div id="root"></div>
+  <body class="text-gray-800 font-sans antialiased h-screen overflow-hidden selection:bg-odoo-primary selection:text-white">
+    <div id="root" class="h-full"></div>
   </body>
 </html>

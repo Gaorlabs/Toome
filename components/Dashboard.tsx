@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Legend, AreaChart, Area 
 } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, MoreHorizontal, Download } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, TrendingUp } from 'lucide-react';
 import { KPI, SalesData, ProductPerformance } from '../types';
 
 interface DashboardProps {
@@ -14,35 +14,48 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ kpis, salesData, topProducts }) => {
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 animate-slide-up pb-8">
+      {/* Header */}
+      <div className="flex justify-between items-end">
         <div>
-           <h2 className="text-2xl font-bold text-gray-800">Vista Ejecutiva</h2>
-           <p className="text-gray-500 text-sm">Resumen de rendimiento de la última semana</p>
+           <h2 className="text-3xl font-bold text-gray-800 tracking-tight">Vista Ejecutiva</h2>
+           <p className="text-gray-500 mt-1 font-light">Resumen de rendimiento y métricas clave.</p>
         </div>
-        <button className="flex items-center space-x-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md shadow-sm transition-all text-sm font-medium">
-            <Download size={16} />
+        <button className="flex items-center space-x-2 bg-white hover:bg-odoo-light text-odoo-dark border border-gray-200 hover:border-odoo-secondary/30 px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all text-sm font-semibold group">
+            <Download size={18} className="text-gray-400 group-hover:text-odoo-secondary transition-colors" />
             <span>Exportar Excel</span>
         </button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative overflow-hidden group hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-gray-500 text-sm font-medium uppercase tracking-wide">{kpi.label}</h3>
-              <div className={`p-2 rounded-full ${kpi.trend === 'up' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                {kpi.trend === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+          <div 
+            key={idx} 
+            className="glass-card rounded-2xl p-6 relative overflow-hidden group animate-slide-up"
+            style={{ animationDelay: `${idx * 100}ms` }}
+          >
+            {/* Background Decoration */}
+            <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${kpi.trend === 'up' ? 'from-green-500/10' : 'from-red-500/10'} to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
+
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">{kpi.label}</h3>
+              <div className={`p-1.5 rounded-lg ${kpi.trend === 'up' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'} shadow-sm`}>
+                {kpi.trend === 'up' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
               </div>
             </div>
-            <div className="flex items-baseline space-x-2">
-              <h2 className="text-3xl font-bold text-gray-800">{kpi.value}</h2>
-              <span className={`text-sm font-medium ${kpi.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {kpi.change > 0 ? '+' : ''}{kpi.change}%
-              </span>
+            
+            <div className="relative z-10">
+              <div className="flex items-baseline space-x-3">
+                <h2 className="text-3xl font-bold text-gray-800 tracking-tight">{kpi.value}</h2>
+              </div>
+              <div className="mt-2 flex items-center">
+                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${kpi.change >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {kpi.change > 0 ? '+' : ''}{kpi.change}%
+                 </span>
+                 <span className="text-xs text-gray-400 ml-2 font-medium">vs. mes anterior</span>
+              </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">vs. periodo anterior</p>
           </div>
         ))}
       </div>
@@ -50,98 +63,103 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis, salesData, topProduc
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales Trend */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-gray-800">Tendencia de Ventas vs Margen</h3>
-            <button className="text-gray-400 hover:text-gray-600"><MoreHorizontal size={20} /></button>
+        <div className="lg:col-span-2 glass-card rounded-2xl p-6 animate-slide-up delay-200">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-2">
+                <div className="p-2 bg-odoo-primary/10 rounded-lg text-odoo-primary">
+                    <TrendingUp size={20} />
+                </div>
+                <h3 className="font-bold text-lg text-gray-800">Evolución de Ventas</h3>
+            </div>
+            <button className="text-gray-400 hover:text-odoo-primary transition-colors bg-gray-50 p-2 rounded-lg hover:bg-gray-100"><MoreHorizontal size={20} /></button>
           </div>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={salesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={salesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#714B67" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#714B67" stopOpacity={0.2}/>
                     <stop offset="95%" stopColor="#714B67" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#017E84" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#017E84" stopOpacity={0.2}/>
                     <stop offset="95%" stopColor="#017E84" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} />
                 <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                    itemStyle={{ fontSize: '12px' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', fontFamily: 'Ubuntu' }}
+                    itemStyle={{ fontSize: '13px', fontWeight: 600 }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }}/>
-                <Area type="monotone" dataKey="sales" name="Ventas Totales" stroke="#714B67" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
-                <Area type="monotone" dataKey="margin" name="Margen Neto" stroke="#017E84" strokeWidth={2} fillOpacity={1} fill="url(#colorMargin)" />
+                <Area type="monotone" dataKey="sales" name="Ventas Totales" stroke="#714B67" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                <Area type="monotone" dataKey="margin" name="Margen Neto" stroke="#017E84" strokeWidth={3} fillOpacity={1} fill="url(#colorMargin)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Top Products */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="glass-card rounded-2xl p-6 animate-slide-up delay-300 flex flex-col">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-gray-800">Top 5 Productos</h3>
-            <button className="text-xs text-odoo-secondary font-medium hover:underline">Ver todo</button>
+            <h3 className="font-bold text-lg text-gray-800">Top Productos</h3>
+            <button className="text-xs text-odoo-secondary font-bold hover:underline bg-odoo-secondary/5 px-2 py-1 rounded">Ver todo</button>
           </div>
-          <div className="h-80 w-full">
+          <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={topProducts} margin={{ top: 0, right: 0, left: 40, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB"/>
+              <BarChart layout="vertical" data={topProducts} margin={{ top: 0, right: 0, left: 30, bottom: 0 }} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6"/>
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: '#4B5563' }} />
-                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px' }} />
-                <Bar dataKey="sales" name="Ventas" fill="#714B67" radius={[0, 4, 4, 0]} barSize={20} />
-                <Bar dataKey="margin" name="Beneficio" fill="#017E84" radius={[0, 4, 4, 0]} barSize={20} />
+                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 500 }} />
+                <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="sales" name="Ventas" fill="#714B67" radius={[0, 4, 4, 0]} barSize={16} />
+                <Bar dataKey="margin" name="Beneficio" fill="#017E84" radius={[0, 4, 4, 0]} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Bottom Section - Profitability Table Preview */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="font-bold text-gray-800">Rentabilidad por Categoría</h3>
-              <button className="text-sm text-gray-500 hover:text-gray-800">Descargar Reporte</button>
+      {/* Bottom Section - Profitability Table */}
+      <div className="glass-card rounded-2xl overflow-hidden animate-slide-up delay-400">
+          <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white/40">
+              <h3 className="font-bold text-lg text-gray-800">Rentabilidad por Categoría</h3>
+              <button className="text-sm text-gray-500 hover:text-odoo-dark font-medium transition-colors">Descargar Reporte</button>
           </div>
           <div className="overflow-x-auto">
               <table className="w-full text-sm text-left text-gray-500">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50/50">
                       <tr>
-                          <th className="px-6 py-3">Categoría</th>
-                          <th className="px-6 py-3 text-right">Ventas Totales</th>
-                          <th className="px-6 py-3 text-right">Margen Bruto</th>
-                          <th className="px-6 py-3 text-right">Rentabilidad %</th>
-                          <th className="px-6 py-3 text-center">Estado</th>
+                          <th className="px-6 py-4 font-bold tracking-wider">Categoría</th>
+                          <th className="px-6 py-4 text-right font-bold tracking-wider">Ventas Totales</th>
+                          <th className="px-6 py-4 text-right font-bold tracking-wider">Margen Bruto</th>
+                          <th className="px-6 py-4 text-right font-bold tracking-wider">Rentabilidad %</th>
+                          <th className="px-6 py-4 text-center font-bold tracking-wider">Estado</th>
                       </tr>
                   </thead>
-                  <tbody>
-                      <tr className="bg-white border-b hover:bg-gray-50">
-                          <td className="px-6 py-4 font-medium text-gray-900">Electrónica</td>
-                          <td className="px-6 py-4 text-right">€85,000</td>
-                          <td className="px-6 py-4 text-right">€26,000</td>
+                  <tbody className="divide-y divide-gray-100">
+                      <tr className="hover:bg-white/60 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-gray-800">Electrónica</td>
+                          <td className="px-6 py-4 text-right font-medium">€85,000</td>
+                          <td className="px-6 py-4 text-right font-medium">€26,000</td>
                           <td className="px-6 py-4 text-right text-green-600 font-bold">30.5%</td>
-                          <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Excelente</span></td>
+                          <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Excelente</span></td>
                       </tr>
-                      <tr className="bg-white border-b hover:bg-gray-50">
-                          <td className="px-6 py-4 font-medium text-gray-900">Mobiliario</td>
-                          <td className="px-6 py-4 text-right">€15,000</td>
-                          <td className="px-6 py-4 text-right">€7,500</td>
+                      <tr className="hover:bg-white/60 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-gray-800">Mobiliario</td>
+                          <td className="px-6 py-4 text-right font-medium">€15,000</td>
+                          <td className="px-6 py-4 text-right font-medium">€7,500</td>
                           <td className="px-6 py-4 text-right text-green-600 font-bold">50.0%</td>
-                          <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Excelente</span></td>
+                          <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Excelente</span></td>
                       </tr>
-                      <tr className="bg-white hover:bg-gray-50">
-                          <td className="px-6 py-4 font-medium text-gray-900">Accesorios</td>
-                          <td className="px-6 py-4 text-right">€24,592</td>
-                          <td className="px-6 py-4 text-right">€4,500</td>
+                      <tr className="hover:bg-white/60 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-gray-800">Accesorios</td>
+                          <td className="px-6 py-4 text-right font-medium">€24,592</td>
+                          <td className="px-6 py-4 text-right font-medium">€4,500</td>
                           <td className="px-6 py-4 text-right text-yellow-600 font-bold">18.2%</td>
-                          <td className="px-6 py-4 text-center"><span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Revisar</span></td>
+                          <td className="px-6 py-4 text-center"><span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">Revisar</span></td>
                       </tr>
                   </tbody>
               </table>
