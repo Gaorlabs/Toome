@@ -249,6 +249,7 @@ export default function App() {
                        kpis={MOCK_KPIS} 
                        salesData={MOCK_SALES_DATA} 
                        topProducts={MOCK_TOP_PRODUCTS}
+                       inventory={MOCK_INVENTORY} // Added prop
                    />
                )}
                {currentView === ViewMode.INVENTORY && (

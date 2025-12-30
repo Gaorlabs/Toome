@@ -3,23 +3,28 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Legend, AreaChart, Area 
 } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, TrendingUp } from 'lucide-react';
-import { KPI, SalesData, ProductPerformance } from '../types';
+import { ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, TrendingUp, AlertTriangle, AlertCircle, Package } from 'lucide-react';
+import { KPI, SalesData, ProductPerformance, InventoryItem } from '../types';
 
 interface DashboardProps {
   kpis: KPI[];
   salesData: SalesData[];
   topProducts: ProductPerformance[];
+  inventory: InventoryItem[]; // Added inventory prop
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ kpis, salesData, topProducts }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ kpis, salesData, topProducts, inventory }) => {
+  
+  // Filter for dashboard widget
+  const criticalStock = inventory.filter(item => item.status === 'Critical').slice(0, 5);
+
   return (
     <div className="space-y-8 animate-slide-up pb-8">
       {/* Header */}
       <div className="flex justify-between items-end">
         <div>
            <h2 className="text-3xl font-bold text-gray-800 tracking-tight">Vista Ejecutiva</h2>
-           <p className="text-gray-500 mt-1 font-light">Resumen de rendimiento y métricas clave.</p>
+           <p className="text-gray-500 mt-1 font-light">Resumen de rendimiento y estado del inventario.</p>
         </div>
         <button className="flex items-center space-x-2 bg-white hover:bg-odoo-light text-odoo-dark border border-gray-200 hover:border-odoo-secondary/30 px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all text-sm font-semibold group">
             <Download size={18} className="text-gray-400 group-hover:text-odoo-secondary transition-colors" />
@@ -122,47 +127,88 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis, salesData, topProduc
         </div>
       </div>
 
-      {/* Bottom Section - Profitability Table */}
-      <div className="glass-card rounded-2xl overflow-hidden animate-slide-up delay-400">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white/40">
-              <h3 className="font-bold text-lg text-gray-800">Rentabilidad por Categoría</h3>
-              <button className="text-sm text-gray-500 hover:text-odoo-dark font-medium transition-colors">Descargar Reporte</button>
+      {/* Bottom Section - Split Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up delay-400">
+          
+          {/* Inventory Alerts Widget */}
+          <div className="glass-card rounded-2xl overflow-hidden flex flex-col h-full border-l-4 border-l-red-500">
+              <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-red-50/30">
+                  <div className="flex items-center gap-2">
+                      <AlertCircle className="text-red-500" size={20} />
+                      <h3 className="font-bold text-lg text-gray-800">Stock Crítico</h3>
+                  </div>
+                  <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded-lg">
+                      {criticalStock.length} items
+                  </span>
+              </div>
+              <div className="p-0 overflow-y-auto custom-scrollbar flex-1">
+                  {criticalStock.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-4 border-b border-gray-50 hover:bg-red-50/20 transition-colors">
+                          <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                                  <Package size={20} className="text-gray-400" />
+                              </div>
+                              <div>
+                                  <p className="font-bold text-sm text-gray-800">{item.name}</p>
+                                  <p className="text-xs text-gray-500 font-mono">{item.sku}</p>
+                              </div>
+                          </div>
+                          <div className="text-right">
+                              <p className="text-lg font-bold text-red-600">{item.stock}</p>
+                              <p className="text-[10px] text-red-400 font-semibold uppercase">Unidades</p>
+                          </div>
+                      </div>
+                  ))}
+                  <div className="p-3 text-center">
+                      <button className="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-wide">
+                          Ver inventario completo &rarr;
+                      </button>
+                  </div>
+              </div>
           </div>
-          <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-gray-500">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50/50">
-                      <tr>
-                          <th className="px-6 py-4 font-bold tracking-wider">Categoría</th>
-                          <th className="px-6 py-4 text-right font-bold tracking-wider">Ventas Totales</th>
-                          <th className="px-6 py-4 text-right font-bold tracking-wider">Margen Bruto</th>
-                          <th className="px-6 py-4 text-right font-bold tracking-wider">Rentabilidad %</th>
-                          <th className="px-6 py-4 text-center font-bold tracking-wider">Estado</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                      <tr className="hover:bg-white/60 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-gray-800">Electrónica</td>
-                          <td className="px-6 py-4 text-right font-medium">€85,000</td>
-                          <td className="px-6 py-4 text-right font-medium">€26,000</td>
-                          <td className="px-6 py-4 text-right text-green-600 font-bold">30.5%</td>
-                          <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Excelente</span></td>
-                      </tr>
-                      <tr className="hover:bg-white/60 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-gray-800">Mobiliario</td>
-                          <td className="px-6 py-4 text-right font-medium">€15,000</td>
-                          <td className="px-6 py-4 text-right font-medium">€7,500</td>
-                          <td className="px-6 py-4 text-right text-green-600 font-bold">50.0%</td>
-                          <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Excelente</span></td>
-                      </tr>
-                      <tr className="hover:bg-white/60 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-gray-800">Accesorios</td>
-                          <td className="px-6 py-4 text-right font-medium">€24,592</td>
-                          <td className="px-6 py-4 text-right font-medium">€4,500</td>
-                          <td className="px-6 py-4 text-right text-yellow-600 font-bold">18.2%</td>
-                          <td className="px-6 py-4 text-center"><span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">Revisar</span></td>
-                      </tr>
-                  </tbody>
-              </table>
+
+          {/* Profitability Table */}
+          <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden flex flex-col h-full">
+              <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white/40">
+                  <h3 className="font-bold text-lg text-gray-800">Rentabilidad por Categoría</h3>
+                  <button className="text-sm text-gray-500 hover:text-odoo-dark font-medium transition-colors">Descargar Reporte</button>
+              </div>
+              <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left text-gray-500">
+                      <thead className="text-xs text-gray-700 uppercase bg-gray-50/50">
+                          <tr>
+                              <th className="px-6 py-4 font-bold tracking-wider">Categoría</th>
+                              <th className="px-6 py-4 text-right font-bold tracking-wider">Ventas</th>
+                              <th className="px-6 py-4 text-right font-bold tracking-wider">Margen</th>
+                              <th className="px-6 py-4 text-right font-bold tracking-wider">ROI %</th>
+                              <th className="px-6 py-4 text-center font-bold tracking-wider">Estado</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                          <tr className="hover:bg-white/60 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-gray-800">Electrónica</td>
+                              <td className="px-6 py-4 text-right font-medium">€85,000</td>
+                              <td className="px-6 py-4 text-right font-medium">€26,000</td>
+                              <td className="px-6 py-4 text-right text-green-600 font-bold">30.5%</td>
+                              <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Excelente</span></td>
+                          </tr>
+                          <tr className="hover:bg-white/60 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-gray-800">Mobiliario</td>
+                              <td className="px-6 py-4 text-right font-medium">€15,000</td>
+                              <td className="px-6 py-4 text-right font-medium">€7,500</td>
+                              <td className="px-6 py-4 text-right text-green-600 font-bold">50.0%</td>
+                              <td className="px-6 py-4 text-center"><span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Excelente</span></td>
+                          </tr>
+                          <tr className="hover:bg-white/60 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-gray-800">Accesorios</td>
+                              <td className="px-6 py-4 text-right font-medium">€24,592</td>
+                              <td className="px-6 py-4 text-right font-medium">€4,500</td>
+                              <td className="px-6 py-4 text-right text-yellow-600 font-bold">18.2%</td>
+                              <td className="px-6 py-4 text-center"><span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full border border-yellow-200">Revisar</span></td>
+                          </tr>
+                      </tbody>
+                  </table>
+              </div>
           </div>
       </div>
     </div>
