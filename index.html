@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -17,20 +18,27 @@
             },
             colors: {
               odoo: {
-                primary: '#714B67', // Classic Odoo Purple
-                secondary: '#017E84', // Odoo Teal
-                dark: '#2B3D51', // Dark Blue/Grey
-                light: '#F9F9F9',
-                accent: '#00A09D',
+                primary: '#017E84', // Odoo Teal (Main Brand Color)
+                primaryDark: '#005f63',
+                secondary: '#714B67', // Odoo Purple (Accent)
+                dark: '#212529', // Text Dark
+                gray: '#666666', // Text Gray
+                light: '#F8F9FA', // Background Light
+                border: '#E0E0E0',
                 surface: '#FFFFFF',
+                success: '#28a745',
+                warning: '#ffc107',
+                danger: '#dc3545',
+                info: '#17a2b8'
               }
             },
+            boxShadow: {
+              'spreadsheet': '0 1px 2px rgba(0,0,0,0.05)',
+              'card': '0 2px 4px rgba(0,0,0,0.02), 0 1px 0 rgba(0,0,0,0.03)',
+            },
             animation: {
-              'fade-in': 'fadeIn 0.6s ease-out forwards',
-              'slide-up': 'slideUp 0.6s ease-out forwards',
-              'slide-in-right': 'slideInRight 0.5s ease-out forwards',
-              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'blob': 'blob 7s infinite',
+              'fade-in': 'fadeIn 0.4s ease-out forwards',
+              'slide-up': 'slideUp 0.4s ease-out forwards',
             },
             keyframes: {
               fadeIn: {
@@ -38,18 +46,8 @@
                 '100%': { opacity: '1' },
               },
               slideUp: {
-                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
                 '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              slideInRight: {
-                '0%': { opacity: '0', transform: 'translateX(-20px)' },
-                '100%': { opacity: '1', transform: 'translateX(0)' },
-              },
-              blob: {
-                '0%': { transform: 'translate(0px, 0px) scale(1)' },
-                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                '100%': { transform: 'translate(0px, 0px) scale(1)' },
               }
             }
           }
@@ -57,103 +55,72 @@
       }
     </script>
     <style>
-      /* Base Background with Moving Gradients */
       body {
-        background-color: #f0f2f5;
-        min-height: 100vh;
-        position: relative;
-        overflow-x: hidden;
+        background-color: #F9FAFB;
+        color: #212529;
+      }
+      
+      /* Spreadsheet-like Table Styles */
+      .spreadsheet-grid {
+        display: grid;
+        border: 1px solid #E0E0E0;
+        background: white;
+      }
+      
+      .sheet-header {
+        background-color: #F8F9FA;
+        border-bottom: 2px solid #E0E0E0;
+        font-weight: 500;
+        color: #495057;
       }
 
-      body::before {
-        content: '';
-        position: fixed;
-        top: -10%;
-        left: -10%;
-        width: 120%;
-        height: 120%;
-        background-image: 
-          radial-gradient(at 0% 0%, rgba(113, 75, 103, 0.15) 0px, transparent 50%),
-          radial-gradient(at 100% 0%, rgba(1, 126, 132, 0.15) 0px, transparent 50%),
-          radial-gradient(at 100% 100%, rgba(113, 75, 103, 0.1) 0px, transparent 50%),
-          radial-gradient(at 0% 100%, rgba(1, 126, 132, 0.1) 0px, transparent 50%);
-        background-size: 100% 100%;
-        z-index: -1;
-        animation: blob 20s infinite alternate;
+      .sheet-row {
+        border-bottom: 1px solid #f1f3f5;
+        transition: background-color 0.1s;
       }
 
-      /* Custom scrollbar */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+      .sheet-row:hover {
+        background-color: #f8f9fa;
       }
-      .custom-scrollbar::-webkit-scrollbar-track {
+      
+      /* Custom scrollbar to match Odoo Web */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
         background: transparent;
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 10px;
+      ::-webkit-scrollbar-thumb {
+        background: #ced4da;
+        border-radius: 4px;
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-      
-      /* Advanced Glassmorphism */
-      .glass {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
+      ::-webkit-scrollbar-thumb:hover {
+        background: #adb5bd;
       }
 
-      .glass-card {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        box-shadow: 
-          0 4px 6px -1px rgba(0, 0, 0, 0.05), 
-          0 2px 4px -1px rgba(0, 0, 0, 0.03),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      /* Utilities */
+      .text-xxs {
+        font-size: 0.65rem;
       }
-      
-      .glass-card:hover {
-        transform: translateY(-4px) scale(1.005);
-        box-shadow: 
-          0 20px 25px -5px rgba(0, 0, 0, 0.1), 
-          0 10px 10px -5px rgba(0, 0, 0, 0.04),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.8);
-        border-color: rgba(113, 75, 103, 0.3);
-      }
-
-      /* Staggered Animation Delays */
-      .delay-100 { animation-delay: 100ms; }
-      .delay-200 { animation-delay: 200ms; }
-      .delay-300 { animation-delay: 300ms; }
-      .delay-400 { animation-delay: 400ms; }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^18.2.0/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.263.1",
-    "react/": "https://esm.sh/react@^18.2.0/",
-    "react": "https://esm.sh/react@^18.2.0",
-    "recharts": "https://esm.sh/recharts@^2.8.0"
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0?deps=react@18.2.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.263.1?deps=react@18.2.0",
+    "recharts": "https://esm.sh/recharts@2.8.0?deps=react@18.2.0,react-dom@18.2.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
 </head>
   <body class="text-gray-800 font-sans antialiased h-screen overflow-hidden selection:bg-odoo-primary selection:text-white">
-    <div id="root" class="h-full">
-        <!-- Loading State for slow connections -->
-        <div class="flex flex-col items-center justify-center h-full w-full bg-gray-50 text-odoo-primary">
-            <div class="w-16 h-16 border-4 border-odoo-primary/20 border-t-odoo-primary rounded-full animate-spin mb-4"></div>
-            <span class="font-medium animate-pulse">Iniciando Toome Platform...</span>
-        </div>
-    </div>
-    <!-- IMPORTANT: This script tag connects your React code -->
+    <div id="root" class="h-full"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

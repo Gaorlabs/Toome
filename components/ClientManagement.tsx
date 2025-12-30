@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { ClientAccess, OdooConnection, AppModule } from '../types';
-import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Building2, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Building2, ChevronRight, ChevronDown, Calendar } from 'lucide-react';
 
 interface ClientManagementProps {
   clients: ClientAccess[];
@@ -88,6 +89,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   const availableModules: {id: AppModule, label: string, icon: any}[] = [
     { id: 'DASHBOARD', label: 'Dashboard Ejecutivo', icon: LayoutDashboard },
     { id: 'INVENTORY', label: 'Inventario / Stock', icon: Package },
+    { id: 'AGENDA', label: 'Agenda Profesional', icon: Calendar },
     { id: 'SALES', label: 'Ventas / Cajas', icon: ShoppingCart },
     { id: 'PRODUCTS', label: 'Análisis Productos', icon: TrendingUp },
     { id: 'REPORTS', label: 'Reportes Avanzados', icon: FileText },

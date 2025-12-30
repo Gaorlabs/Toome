@@ -1,4 +1,5 @@
-import { KPI, SalesData, InventoryItem, ProductPerformance, CompanyContext } from './types';
+
+import { KPI, SalesData, InventoryItem, ProductPerformance, CompanyContext, CustomerSegment } from './types';
 
 export const MOCK_COMPANIES: CompanyContext[] = [
   {
@@ -7,29 +8,6 @@ export const MOCK_COMPANIES: CompanyContext[] = [
     branches: [
       { id: 'b1', name: 'Sede Principal - Lima' },
       { id: 'b2', name: 'Almacén Central' },
-    ]
-  },
-  {
-    id: 'c2',
-    name: 'Vida Retail',
-    branches: [
-      { id: 'b3', name: 'Tienda Miraflores' },
-      { id: 'b4', name: 'Tienda San Isidro' },
-    ]
-  },
-  {
-    id: 'c3',
-    name: 'IGP Corp',
-    branches: [
-      { id: 'b5', name: 'Oficinas IGP' },
-      { id: 'b6', name: 'Planta de Producción' },
-    ]
-  },
-  {
-    id: 'c4',
-    name: 'IGP Logistics',
-    branches: [
-      { id: 'b7', name: 'Centro de Distribución' },
     ]
   }
 ];
@@ -64,17 +42,22 @@ export const MOCK_INVENTORY: InventoryItem[] = [
   { id: '5', sku: 'ACC-STND-AL', name: 'Soporte Laptop Aluminio', stock: 18, avgDailySales: 1.5, daysRemaining: 12.0, status: 'Warning', category: 'Accesorios' },
   { id: '6', sku: 'ELEC-CAM-HD', name: 'Webcam HD 1080p', stock: 150, avgDailySales: 4.2, daysRemaining: 35.7, status: 'Healthy', category: 'Electrónica' },
   { id: '7', sku: 'MOB-CHR-ERG', name: 'Silla Ergonómica V2', stock: 2, avgDailySales: 0.5, daysRemaining: 4.0, status: 'Critical', category: 'Mobiliario' },
-  { id: '8', sku: 'ELEC-PHN-14', name: 'Smartphone Gen 14', stock: 8, avgDailySales: 2.0, daysRemaining: 4.0, status: 'Critical', category: 'Electrónica' },
-  { id: '9', sku: 'ACC-HUB-USBC', name: 'Hub USB-C 7-in-1', stock: 25, avgDailySales: 1.1, daysRemaining: 22.7, status: 'Healthy', category: 'Accesorios' },
-  { id: '10', sku: 'MOB-DSK-STD', name: 'Escritorio Elevable', stock: 15, avgDailySales: 0.3, daysRemaining: 50.0, status: 'Healthy', category: 'Mobiliario' },
-  { id: '11', sku: 'ELEC-TAB-PRO', name: 'Tablet Pro 11"', stock: 6, avgDailySales: 0.9, daysRemaining: 6.6, status: 'Warning', category: 'Electrónica' },
-  { id: '12', sku: 'ACC-CBL-HDMI', name: 'Cable HDMI 2.1', stock: 3, avgDailySales: 2.5, daysRemaining: 1.2, status: 'Critical', category: 'Accesorios' },
 ];
 
 export const MOCK_TOP_PRODUCTS: ProductPerformance[] = [
-  { id: 'p1', name: 'Laptop Ultrabook X1', category: 'Electrónica', sales: 45000, margin: 12000, profitability: 26.6 },
-  { id: 'p2', name: 'Smartphone Gen 14', category: 'Electrónica', sales: 38000, margin: 8000, profitability: 21.0 },
-  { id: 'p3', name: 'Monitor 4K 27"', category: 'Electrónica', sales: 22000, margin: 6000, profitability: 27.2 },
-  { id: 'p4', name: 'Silla Ergonómica V2', category: 'Mobiliario', sales: 15000, margin: 7500, profitability: 50.0 },
-  { id: 'p5', name: 'Auriculares Noise Cancel', category: 'Audio', sales: 12000, margin: 4000, profitability: 33.3 },
+  { id: 'p1', name: 'Laptop Ultrabook X1', category: 'Electrónica', sales: 45000, cost: 33000, margin: 12000, marginPercent: 26.6, profitability: 26.6, abcClass: 'A', rotation: 'High' },
+  { id: 'p2', name: 'Smartphone Gen 14', category: 'Electrónica', sales: 38000, cost: 30000, margin: 8000, marginPercent: 21.0, profitability: 21.0, abcClass: 'A', rotation: 'High' },
+  { id: 'p3', name: 'Monitor 4K 27"', category: 'Electrónica', sales: 22000, cost: 16000, margin: 6000, marginPercent: 27.2, profitability: 27.2, abcClass: 'B', rotation: 'Medium' },
+  { id: 'p4', name: 'Silla Ergonómica V2', category: 'Mobiliario', sales: 15000, cost: 7500, margin: 7500, marginPercent: 50.0, profitability: 50.0, abcClass: 'B', rotation: 'Low' },
+  { id: 'p5', name: 'Auriculares Noise Cancel', category: 'Audio', sales: 12000, cost: 8000, margin: 4000, marginPercent: 33.3, profitability: 33.3, abcClass: 'C', rotation: 'Medium' },
+  { id: 'p6', name: 'Cable HDMI 2m', category: 'Accesorios', sales: 1500, cost: 300, margin: 1200, marginPercent: 80.0, profitability: 80.0, abcClass: 'C', rotation: 'High' },
+];
+
+export const MOCK_CUSTOMERS: CustomerSegment[] = [
+  { id: 'c1', name: 'Juan Pérez', segment: 'VIP', ltv: 12500, lastPurchaseDate: '2025-01-20', frequency: 15, totalSpent: 12500 },
+  { id: 'c2', name: 'Empresa ABC S.A.C.', segment: 'VIP', ltv: 45000, lastPurchaseDate: '2025-01-18', frequency: 24, totalSpent: 45000 },
+  { id: 'c3', name: 'María Garcia', segment: 'Regular', ltv: 3200, lastPurchaseDate: '2025-01-10', frequency: 5, totalSpent: 3200 },
+  { id: 'c4', name: 'Carlos López', segment: 'Risk', ltv: 800, lastPurchaseDate: '2024-10-15', frequency: 2, totalSpent: 800 },
+  { id: 'c5', name: 'Tech Solutions Ltd', segment: 'VIP', ltv: 28000, lastPurchaseDate: '2025-01-21', frequency: 12, totalSpent: 28000 },
+  { id: 'c6', name: 'Ana Martinez', segment: 'Occasional', ltv: 150, lastPurchaseDate: '2024-12-24', frequency: 1, totalSpent: 150 },
 ];

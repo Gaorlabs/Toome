@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { LayoutDashboard, Package, TrendingUp, Users, FileText, Settings, Database, BarChart3, ChevronLeft, ShieldCheck, LogOut, Server, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, Package, TrendingUp, Users, FileText, Settings, Database, BarChart3, ChevronLeft, ShieldCheck, LogOut, Server, ShoppingCart, Calendar } from 'lucide-react';
 import { ViewMode, UserRole, AppModule } from '../types';
 
 interface SidebarProps {
@@ -18,6 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
   const allMenuItems = [
     { id: ViewMode.DASHBOARD, label: 'Dashboard Ejecutivo', icon: LayoutDashboard, module: 'DASHBOARD' as AppModule },
     { id: ViewMode.INVENTORY, label: 'Alertas Inventario', icon: Package, module: 'INVENTORY' as AppModule },
+    { id: ViewMode.AGENDA, label: 'Agenda Profesional', icon: Calendar, module: 'AGENDA' as AppModule },
     { id: ViewMode.PRODUCTS, label: 'Análisis Productos', icon: TrendingUp, module: 'PRODUCTS' as AppModule },
     { id: ViewMode.CUSTOMERS, label: 'Ventas / Clientes', icon: ShoppingCart, module: 'SALES' as AppModule }, 
     { id: ViewMode.REPORTS, label: 'Reportes', icon: FileText, module: 'REPORTS' as AppModule },

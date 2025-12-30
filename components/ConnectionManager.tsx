@@ -1,66 +1,113 @@
+
 import React, { useState } from 'react';
-import { OdooConnection } from '../types';
-import { Plus, Database, Globe, User, Key, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Power } from 'lucide-react';
+import { OdooConnection, OdooCompany } from '../types';
+import { Plus, Database, Globe, User, Key, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Power, AlertTriangle, Shield, AlertOctagon, PlayCircle } from 'lucide-react';
+import { testOdooConnection } from '../services/odooBridge';
 
 interface ConnectionManagerProps {
   connections: OdooConnection[];
   onAddConnection: (conn: OdooConnection) => void;
   onRemoveConnection: (id: string) => void;
-  onUpdateStatus: (id: string, status: 'CONNECTED' | 'ERROR') => void;
+  onUpdateStatus: (id: string, status: 'CONNECTED' | 'ERROR', mode?: 'REAL' | 'MOCK', companies?: OdooCompany[]) => void;
 }
 
 export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connections, onAddConnection, onRemoveConnection, onUpdateStatus }) => {
-  const [showForm, setShowForm] = useState(false);
+  // Auto-open form if the list is empty
+  const [showForm, setShowForm] = useState(connections.length === 0);
   const [testing, setTesting] = useState<string | null>(null); // ID of connection being tested
+  const [lastError, setLastError] = useState<string | null>(null);
   
+  // PRE-FILLED WITH USER DATA FOR QUICK SETUP
   const [form, setForm] = useState({
-    name: '',
-    url: '',
-    db: '',
-    user: '',
-    apiKey: ''
+    name: 'Botica Principal',
+    url: 'https://boticap.facturaclic.pe/',
+    db: 'boticap_master',
+    user: 'soporte@facturaclic.pe',
+    apiKey: '774c02dca8070ab0e0c1a5dae5792237b495e71c'
   });
+
+  const isMixedContent = (url: string) => {
+      return window.location.protocol === 'https:' && url.startsWith('http:');
+  };
+
+  const isLocalhost = (url: string) => {
+      return url.includes('localhost') || url.includes('127.0.0.1');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    addConnection(form);
+  };
+
+  const addConnection = (data: typeof form, isDemo = false) => {
     const newConn: OdooConnection = {
       id: Math.random().toString(36).substr(2, 9),
-      ...form,
-      status: 'PENDING',
-      lastCheck: null
+      ...data,
+      status: isDemo ? 'CONNECTED' : 'PENDING',
+      connectionMode: isDemo ? 'MOCK' : 'REAL',
+      lastCheck: isDemo ? new Date().toLocaleString() : null,
+      companies: isDemo ? [
+          { id: '1', name: 'Compañía Demo 1', currency: 'USD' },
+          { id: '2', name: 'Sucursal Demo Norte', currency: 'PEN' }
+      ] : []
     };
     onAddConnection(newConn);
+    // Keep form data for convenience in case of retry, or clear? Let's clear to avoid dupes visually but user provided specific data so maybe keep it if they want to edit. 
+    // Resetting for clean UX.
     setForm({ name: '', url: '', db: '', user: '', apiKey: '' });
     setShowForm(false);
   };
 
-  const testConnection = async (id: string) => {
-    setTesting(id);
+  const createDemoConnection = () => {
+      addConnection({
+          name: 'Demo Odoo (Datos Prueba)',
+          url: 'https://demo.odoo.com',
+          db: 'demo_db',
+          user: 'demo@demo.com',
+          apiKey: 'demo123'
+      }, true);
+  };
+
+  const testConnection = async (connection: OdooConnection) => {
+    setTesting(connection.id);
+    setLastError(null);
     
-    // SIMULATION OF XML-RPC CALL
-    // In a real app, this would call your backend which talks to Odoo via xmlrpc
-    setTimeout(() => {
-      // Random success/fail for demo purposes
-      const success = Math.random() > 0.3; 
-      onUpdateStatus(id, success ? 'CONNECTED' : 'ERROR');
-      setTesting(null);
-    }, 2000);
+    // Llamada real al puente XML-RPC directo
+    const { success, mode, companies, error } = await testOdooConnection(connection);
+    
+    if (!success) {
+        // Show the specific error from the bridge
+        setLastError(error || "Falló la conexión. Verifica URL, DB y Credenciales.");
+    }
+
+    // Pasamos las compañías detectadas hacia arriba (App.tsx)
+    onUpdateStatus(connection.id, success ? 'CONNECTED' : 'ERROR', mode, companies);
+    setTesting(null);
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Conexiones Odoo</h2>
-          <p className="text-gray-500 text-sm">Gestiona las instancias y bases de datos conectadas a la plataforma.</p>
+          <p className="text-gray-500 text-sm">Gestiona tus instancias ERP. Usa modo demo si no tienes un servidor activo.</p>
         </div>
-        <button 
-          onClick={() => setShowForm(!showForm)}
-          className="bg-odoo-secondary hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
-        >
-          <Plus size={18} />
-          <span>Nueva Conexión</span>
-        </button>
+        <div className="flex gap-2">
+            <button 
+                onClick={createDemoConnection}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+            >
+                <PlayCircle size={18} className="text-odoo-primary" />
+                <span>Usar Demo</span>
+            </button>
+            <button 
+            onClick={() => setShowForm(!showForm)}
+            className="bg-odoo-secondary hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+            >
+            <Plus size={18} />
+            <span>Nueva Conexión</span>
+            </button>
+        </div>
       </div>
 
       {showForm && (
@@ -78,7 +125,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                   value={form.name}
                   onChange={(e) => setForm({...form, name: e.target.value})}
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary"
-                  placeholder="Ej: ERP Producción Europa"
+                  placeholder="Ej: ERP Producción"
                   required
                 />
               </div>
@@ -90,11 +137,21 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                     type="url" 
                     value={form.url}
                     onChange={(e) => setForm({...form, url: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg pl-9 p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary"
+                    className={`w-full border rounded-lg pl-9 p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary ${isMixedContent(form.url) || isLocalhost(form.url) ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
                     placeholder="https://mi-empresa.odoo.com"
                     required
                     />
                 </div>
+                {isMixedContent(form.url) && (
+                    <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
+                        <AlertTriangle size={10} /> Error: No puedes conectar un Odoo HTTP desde una web HTTPS.
+                    </p>
+                )}
+                {isLocalhost(form.url) && (
+                    <p className="text-[10px] text-red-500 mt-1 font-bold flex items-center gap-1">
+                        <AlertTriangle size={10} /> Localhost no es accesible desde internet (necesitas Ngrok).
+                    </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Base de Datos</label>
@@ -125,7 +182,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">API Key / Contraseña</label>
                 <div className="relative">
                     <Key size={16} className="absolute top-3 left-3 text-gray-400" />
                     <input 
@@ -159,6 +216,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
         </div>
       )}
 
+      {lastError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 animate-fade-in">
+              <AlertOctagon size={24} className="flex-shrink-0" />
+              <div className="flex-1">
+                  <p className="text-sm font-bold">Error de Conexión</p>
+                  <p className="text-xs">{lastError}</p>
+              </div>
+          </div>
+      )}
+
       {/* Connection List */}
       <div className="grid grid-cols-1 gap-6">
         {connections.map(conn => (
@@ -175,13 +242,13 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                             </h3>
                             <p className="text-sm text-gray-500 mt-1">{conn.url}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end gap-1">
                             <span className={`text-xs font-bold px-3 py-1 rounded-full ${
                                 conn.status === 'CONNECTED' ? 'bg-green-100 text-green-700' :
                                 conn.status === 'ERROR' ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-600'
                             }`}>
-                                {conn.status === 'CONNECTED' ? 'CONECTADO' : conn.status === 'ERROR' ? 'ERROR CONEXIÓN' : 'SIN VERIFICAR'}
+                                {conn.connectionMode === 'MOCK' ? 'DEMO MODE' : conn.status === 'CONNECTED' ? 'CONECTADO (XML-RPC)' : conn.status === 'ERROR' ? 'ERROR CONEXIÓN' : 'SIN VERIFICAR'}
                             </span>
                         </div>
                     </div>
@@ -200,20 +267,22 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                             <p className="font-medium text-gray-700 font-mono">••••••{conn.apiKey.slice(-4)}</p>
                         </div>
                          <div>
-                            <p className="text-gray-400 text-xs uppercase font-bold">Última Verificación</p>
-                            <p className="font-medium text-gray-700">{conn.lastCheck || 'Nunca'}</p>
+                            <p className="text-gray-400 text-xs uppercase font-bold">Empresas</p>
+                            <p className="font-medium text-gray-700">
+                                {conn.companies?.length > 0 ? `${conn.companies.length} detectadas` : '-'}
+                            </p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-gray-50 p-4 flex md:flex-col justify-center gap-3 border-t md:border-t-0 md:border-l border-gray-200">
                     <button 
-                        onClick={() => testConnection(conn.id)}
+                        onClick={() => testConnection(conn)}
                         disabled={testing === conn.id}
                         className="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:border-odoo-secondary hover:text-odoo-secondary text-gray-700 px-4 py-2 rounded-lg transition-all text-sm font-medium shadow-sm"
                     >
                         {testing === conn.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
-                        <span>{testing === conn.id ? 'Probando...' : 'Probar'}</span>
+                        <span>{testing === conn.id ? 'Conectando...' : 'Conectar'}</span>
                     </button>
                     <button 
                         onClick={() => onRemoveConnection(conn.id)}
