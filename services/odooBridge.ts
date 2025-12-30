@@ -5,15 +5,13 @@ import { OdooConnection, CalendarEvent, OdooCompany } from '../types';
 // 1. CONFIGURACIÓN DE PROXIES (CORS BYPASS)
 // ==========================================
 const PROXIES = [
-  // Opción 1: ThingProxy (Más estable para XML-RPC y POST bodies)
-  'https://thingproxy.freeboard.io/fetch/',
-  // Opción 2: CorsProxy (Rápido, buen respaldo)
+  // Opción 1: CorsProxy.io (Suele ser el más rápido y fiable para HTTPS)
   'https://corsproxy.io/?', 
+  // Opción 2: ThingProxy (Buen respaldo para XML-RPC)
+  'https://thingproxy.freeboard.io/fetch/',
   // Opción 3: CodeTabs (Alternativa final)
   'https://api.codetabs.com/v1/proxy?quest='
 ];
-
-// NOTA: Se eliminó 'allorigins' porque borraba el cuerpo del mensaje XML causando el error "ExpatError" en Odoo.
 
 // ==========================================
 // 2. UTILIDADES XML-RPC (SERIALIZADOR Y PARSER)
@@ -27,7 +25,6 @@ const toXmlValue = (value: any): string => {
       return Number.isInteger(value) ? `<int>${value}</int>` : `<double>${value}</double>`;
   }
   if (typeof value === 'string') {
-      // Escapar caracteres XML básicos
       const escaped = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return `<string>${escaped}</string>`;
   }
@@ -71,7 +68,7 @@ const parseXmlValue = (node: Element): any => {
   const type = node.firstElementChild?.tagName;
   const content = node.textContent;
 
-  if (!type) return content; // Fallback string
+  if (!type) return content;
 
   switch (type) {
     case 'boolean': return content === '1';
@@ -101,17 +98,14 @@ const parseXmlResponse = (xmlText: string) => {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, "text/xml");
   
-  // Check for Fault (Error de Odoo)
   const fault = xmlDoc.querySelector('methodResponse > fault');
   if (fault) {
     const faultStruct = parseXmlValue(fault.querySelector('value')!);
     throw new Error(`Odoo XML-RPC Fault: ${faultStruct.faultString} (${faultStruct.faultCode})`);
   }
 
-  // Success Params
   const param = xmlDoc.querySelector('methodResponse > params > param > value');
   if (!param) {
-      // Si llegamos aquí y no hay params, puede ser un error HTML del proxy
       if (xmlText.includes('<html>') || xmlText.trim() === '') {
           throw new Error("Respuesta inválida del servidor (posible bloqueo de proxy).");
       }
@@ -127,7 +121,9 @@ const parseXmlResponse = (xmlText: string) => {
 
 const fetchWithProxy = async (targetUrl: string, body: string) => {
   let lastError;
+  const errors = [];
 
+  // 1. Intento con Proxies
   for (const proxy of PROXIES) {
     try {
       const proxyUrl = `${proxy}${encodeURIComponent(targetUrl)}`;
@@ -136,8 +132,8 @@ const fetchWithProxy = async (targetUrl: string, body: string) => {
       const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/xml',
-          'X-Requested-With': 'XMLHttpRequest'
+          'Content-Type': 'text/xml'
+          // 'X-Requested-With' removido para evitar preflight complex en algunos proxies
         },
         body: body
       });
@@ -148,7 +144,6 @@ const fetchWithProxy = async (targetUrl: string, body: string) => {
       
       const text = await response.text();
       
-      // Validación básica: Si devuelve HTML de error, es fallo del proxy
       if (text.startsWith('Error') || (text.includes('<title>') && text.includes('Error'))) {
           throw new Error("Proxy devolvió página de error.");
       }
@@ -157,28 +152,36 @@ const fetchWithProxy = async (targetUrl: string, body: string) => {
 
     } catch (e: any) {
       console.warn(`⚠️ Falló proxy ${proxy}:`, e.message);
+      errors.push(`${proxy}: ${e.message}`);
       lastError = e;
-      // Continuar al siguiente proxy en el loop
     }
   }
-  throw new Error(`No se pudo conectar a Odoo. Verifica que la URL sea pública. Último error: ${lastError?.message}`);
+
+  // 2. Intento Directo (Hail Mary - Por si el usuario tiene plugin CORS o el server permite)
+  try {
+      console.log(`📡 Intentando conexión DIRECTA (Sin Proxy)...`);
+      const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/xml' },
+          body: body
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      return text;
+  } catch (e: any) {
+      console.warn("⚠️ Falló conexión directa:", e.message);
+      errors.push(`Direct: ${e.message}`);
+  }
+
+  throw new Error(`Conexión fallida. Detalles: ${errors.join(' | ')}`);
 };
 
-/**
- * Función Maestra: Ejecuta una llamada XML-RPC completa
- */
 const executeXmlRpc = async (url: string, endpoint: 'common' | 'object', method: string, params: any[]) => {
-  // Limpiar URL
   const cleanUrl = url.replace(/\/+$/, '');
   const targetUrl = `${cleanUrl}/xmlrpc/2/${endpoint}`;
   
-  // 1. Construir XML
   const xmlBody = buildXmlCall(method, params);
-  
-  // 2. Enviar Request (con Proxy)
   const xmlResponse = await fetchWithProxy(targetUrl, xmlBody);
-  
-  // 3. Parsear Resultado
   return parseXmlResponse(xmlResponse);
 };
 
@@ -188,7 +191,6 @@ const executeXmlRpc = async (url: string, endpoint: 'common' | 'object', method:
 
 export const testOdooConnection = async (connection: OdooConnection): Promise<{ success: boolean; mode: 'REAL' | 'MOCK'; companies: OdooCompany[]; error?: string }> => {
   
-  // BYPASS FOR MOCK MODE
   if (connection.connectionMode === 'MOCK') {
       return { 
           success: true, 
@@ -202,12 +204,11 @@ export const testOdooConnection = async (connection: OdooConnection): Promise<{ 
 
   try {
     console.log("🔐 Autenticando...");
-    // Paso 1: Autenticar (common -> authenticate)
     const uid = await executeXmlRpc(connection.url, 'common', 'authenticate', [
       connection.db,
       connection.user,
-      connection.apiKey, // Password o API Key
-      {} // Empty struct for user_agent env
+      connection.apiKey,
+      {} 
     ]);
 
     if (!uid || typeof uid !== 'number') {
@@ -216,14 +217,13 @@ export const testOdooConnection = async (connection: OdooConnection): Promise<{ 
 
     console.log(`✅ Autenticado exitosamente. UID: ${uid}`);
 
-    // Paso 2: Obtener TODAS las compañías disponibles (res.company)
     const companiesData = await executeXmlRpc(connection.url, 'object', 'execute_kw', [
       connection.db,
       uid,
       connection.apiKey,
       'res.company',
       'search_read',
-      [[]], // Domain: All (traer todas)
+      [[]], 
       { fields: ['name', 'currency_id'] }
     ]);
 
@@ -234,7 +234,7 @@ export const testOdooConnection = async (connection: OdooConnection): Promise<{ 
     const companies: OdooCompany[] = companiesData.map((c: any) => ({
         id: c.id.toString(),
         name: c.name,
-        currency: Array.isArray(c.currency_id) ? c.currency_id[1] : 'PEN' // Odoo devuelve [id, "Nombre"]
+        currency: Array.isArray(c.currency_id) ? c.currency_id[1] : 'PEN' 
     }));
 
     return { success: true, mode: 'REAL', companies };
