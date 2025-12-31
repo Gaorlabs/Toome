@@ -53,7 +53,7 @@ export const testOdooConnection = async (connection: OdooConnection): Promise<{ 
   }
 };
 
-export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosConfig[]> => {
+export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosConfig[] | null> => {
     if (connection.connectionMode === 'MOCK') {
         return [
             { id: 101, name: 'Caja Principal', company_id: [1, 'Farmacia Central'] },
@@ -77,13 +77,13 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
             { limit: 1000 }
         );
         
-        if (!Array.isArray(posConfigs)) return [];
+        if (!Array.isArray(posConfigs)) return null;
 
         return posConfigs as PosConfig[];
 
     } catch (e) {
         console.error("Error fetching POS Configs:", e);
-        return [];
+        return null; // Return null on error so UI knows it failed, vs empty array []
     }
 };
 
