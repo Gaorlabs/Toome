@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -10,7 +11,7 @@ import { Login } from './components/Login';
 import { ClientManagement } from './components/ClientManagement';
 import { ConnectionManager } from './components/ConnectionManager';
 import { ViewMode, UserSession, ClientAccess, OdooConnection, OdooCompany } from './types';
-import { MOCK_KPIS, MOCK_SALES_DATA, MOCK_TOP_PRODUCTS, MOCK_INVENTORY, MOCK_CUSTOMERS } from './constants';
+import { MOCK_KPIS, MOCK_SALES_DATA, MOCK_TOP_PRODUCTS, MOCK_INVENTORY, MOCK_CUSTOMERS, MOCK_BRANCHES } from './constants';
 import { Bell, Search, ChevronDown, Building, Menu, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
@@ -393,6 +394,7 @@ export default function App() {
                        salesData={MOCK_SALES_DATA} 
                        topProducts={MOCK_TOP_PRODUCTS}
                        inventory={MOCK_INVENTORY}
+                       branchKPIs={MOCK_BRANCHES}
                        activeConnection={selectedConnection} 
                    />
                )}

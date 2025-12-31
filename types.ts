@@ -1,10 +1,12 @@
 
+
 export interface KPI {
   label: string;
   value: string;
   change: number;
   trend: 'up' | 'down' | 'neutral';
   icon: string;
+  isDark?: boolean; // New for the Black Card style
 }
 
 export interface SalesData {
@@ -12,6 +14,16 @@ export interface SalesData {
   sales: number;
   margin: number;
   transactions: number;
+}
+
+export interface BranchKPI {
+  id: string;
+  name: string;
+  sales: number;
+  margin: number;
+  target: number; 
+  profitability: number; // percentage
+  status: 'OPEN' | 'CLOSED';
 }
 
 export interface ProductPerformance {
@@ -61,25 +73,26 @@ export interface Branch {
 
 export enum ViewMode {
   DASHBOARD = 'DASHBOARD',
+  PROFITABILITY = 'PROFITABILITY',
+  BRANCHES = 'BRANCHES',
   INVENTORY = 'INVENTORY',
   PRODUCTS = 'PRODUCTS',
   CUSTOMERS = 'CUSTOMERS',
-  AGENDA = 'AGENDA', // New View Mode
   REPORTS = 'REPORTS',
   CLIENT_MANAGEMENT = 'CLIENT_MANAGEMENT',
-  CONNECTION_MANAGEMENT = 'CONNECTION_MANAGEMENT'
+  CONNECTION_MANAGEMENT = 'CONNECTION_MANAGEMENT',
+  AGENDA = 'AGENDA'
 }
 
 // Permissions Types
 export type AppModule = 'DASHBOARD' | 'INVENTORY' | 'PRODUCTS' | 'SALES' | 'AGENDA' | 'REPORTS';
 
-// New Types for Toome Auth
 export interface ClientAccess {
   id: string;
   name: string;
   accessKey: string;
-  assignedConnectionIds: string[]; // IDs of OdooConnections they have access to (derived)
-  allowedCompanyIds: string[]; // NEW: Specific Company IDs (e.g. 'c1', 'c2')
+  assignedConnectionIds: string[]; 
+  allowedCompanyIds: string[]; 
   allowedModules: AppModule[]; 
   createdAt: string;
 }
@@ -100,15 +113,15 @@ export interface OdooCompany {
 
 export interface OdooConnection {
   id: string;
-  name: string; // Friendly name (e.g. "Sucursal Norte")
+  name: string;
   url: string;
   db: string;
   user: string;
   apiKey: string;
   status: 'CONNECTED' | 'ERROR' | 'PENDING';
-  connectionMode?: 'REAL' | 'MOCK'; // NEW: To distinguish Proxy vs Fallback
+  connectionMode?: 'REAL' | 'MOCK';
   lastCheck: string | null;
-  companies: OdooCompany[]; // NEW: List of companies inside this DB
+  companies: OdooCompany[]; 
 }
 
 export type UserRole = 'ADMIN' | 'CLIENT';
@@ -116,10 +129,9 @@ export type UserRole = 'ADMIN' | 'CLIENT';
 export interface UserSession {
   role: UserRole;
   name: string;
-  clientData?: ClientAccess; // Only if role is CLIENT
+  clientData?: ClientAccess; 
 }
 
-// Calendar Types for Agenda Module
 export interface CalendarEvent {
   id: number;
   title: string;
@@ -127,15 +139,15 @@ export interface CalendarEvent {
   end: string;
   location?: string;
   description?: string;
-  attendees?: string; // stringified list for display
+  attendees?: string; 
   status: 'needsAction' | 'confirmed' | 'tentative' | 'cancelled';
 }
 
-// Props interface moved here to avoid circular dependencies
 export interface DashboardProps {
   kpis: KPI[];
   salesData: SalesData[];
   topProducts: ProductPerformance[];
   inventory: InventoryItem[];
-  activeConnection: OdooConnection | null; // Added for real-time fetching
+  branchKPIs: BranchKPI[]; // New: Data for Branch Cards
+  activeConnection: OdooConnection | null;
 }

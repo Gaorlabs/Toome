@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { OdooConnection, OdooCompany } from '../types';
-import { Plus, Database, Globe, User, Key, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Power, AlertTriangle, Shield, AlertOctagon, PlayCircle } from 'lucide-react';
+import { Plus, Database, Globe, User, Key, CheckCircle, XCircle, Loader2, Trash2, Power, AlertTriangle, AlertOctagon, PlayCircle, ShieldCheck } from 'lucide-react';
 import { testOdooConnection } from '../services/odooBridge';
 
 interface ConnectionManagerProps {
@@ -12,12 +12,11 @@ interface ConnectionManagerProps {
 }
 
 export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connections, onAddConnection, onRemoveConnection, onUpdateStatus }) => {
-  // Auto-open form if the list is empty
   const [showForm, setShowForm] = useState(connections.length === 0);
-  const [testing, setTesting] = useState<string | null>(null); // ID of connection being tested
+  const [testing, setTesting] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastSuccess, setLastSuccess] = useState<string | null>(null);
   
-  // FORMULARIO LIMPIO (Sin datos pre-llenados)
   const [form, setForm] = useState({
     name: '',
     url: '',
@@ -69,12 +68,15 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
   const testConnection = async (connection: OdooConnection) => {
     setTesting(connection.id);
     setLastError(null);
+    setLastSuccess(null);
     
     // Llamada real al puente XML-RPC directo
     const { success, mode, companies, error } = await testOdooConnection(connection);
     
     if (!success) {
         setLastError(error || "Falló la conexión. Verifica URL, DB y Credenciales.");
+    } else {
+        setLastSuccess(`Conexión exitosa. Se detectaron ${companies.length} compañías.`);
     }
 
     onUpdateStatus(connection.id, success ? 'CONNECTED' : 'ERROR', mode, companies);
@@ -82,20 +84,19 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Conexiones Odoo</h2>
-          <p className="text-gray-500 text-sm">Gestiona tus instancias ERP.</p>
+          <p className="text-gray-500 text-sm">Gestiona tus instancias ERP para alimentar el dashboard.</p>
         </div>
         <div className="flex gap-2">
-            {/* Botón Demo Oculto/Secundario si se desea limpiar la UI */}
             <button 
                 onClick={createDemoConnection}
                 className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors text-xs"
             >
                 <PlayCircle size={14} className="text-gray-400" />
-                <span>Modo Demo</span>
+                <span>Crear Demo</span>
             </button>
             <button 
             onClick={() => setShowForm(!showForm)}
@@ -108,7 +109,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
       </div>
 
       {showForm && (
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-odoo-secondary/20 mb-6">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-odoo-secondary/20 mb-6 animate-slide-up">
           <h3 className="font-bold text-lg mb-4 text-gray-800 flex items-center gap-2">
             <Database size={20} className="text-odoo-secondary"/>
             Configurar Nueva Instancia
@@ -213,20 +214,32 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
         </div>
       )}
 
+      {/* Status Messages */}
       {lastError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 animate-fade-in">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 animate-fade-in shadow-sm">
               <AlertOctagon size={24} className="flex-shrink-0" />
               <div className="flex-1">
                   <p className="text-sm font-bold">Error de Conexión</p>
-                  <p className="text-xs">{lastError}</p>
+                  <p className="text-xs break-all">{lastError}</p>
               </div>
+              <button onClick={() => setLastError(null)} className="text-red-400 hover:text-red-700"><XCircle size={18} /></button>
+          </div>
+      )}
+      {lastSuccess && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2 animate-fade-in shadow-sm">
+              <CheckCircle size={24} className="flex-shrink-0" />
+              <div className="flex-1">
+                  <p className="text-sm font-bold">¡Conexión Exitosa!</p>
+                  <p className="text-xs">{lastSuccess}</p>
+              </div>
+              <button onClick={() => setLastSuccess(null)} className="text-green-400 hover:text-green-700"><XCircle size={18} /></button>
           </div>
       )}
 
       {/* Connection List */}
       <div className="grid grid-cols-1 gap-6">
         {connections.map(conn => (
-            <div key={conn.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row">
+            <div key={conn.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row transition-all hover:shadow-md">
                 <div className={`w-2 md:w-auto md:min-w-[8px] ${conn.status === 'CONNECTED' ? 'bg-green-500' : conn.status === 'ERROR' ? 'bg-red-500' : 'bg-gray-300'}`}></div>
                 
                 <div className="p-6 flex-1">
@@ -237,36 +250,36 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                                 {conn.status === 'CONNECTED' && <CheckCircle size={18} className="text-green-500" />}
                                 {conn.status === 'ERROR' && <XCircle size={18} className="text-red-500" />}
                             </h3>
-                            <p className="text-sm text-gray-500 mt-1">{conn.url}</p>
+                            <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><Globe size={12}/> {conn.url}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                                conn.status === 'CONNECTED' ? 'bg-green-100 text-green-700' :
-                                conn.status === 'ERROR' ? 'bg-red-100 text-red-700' :
-                                'bg-gray-100 text-gray-600'
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                                conn.status === 'CONNECTED' ? 'bg-green-100 text-green-700 border-green-200' :
+                                conn.status === 'ERROR' ? 'bg-red-100 text-red-700 border-red-200' :
+                                'bg-gray-100 text-gray-600 border-gray-200'
                             }`}>
-                                {conn.connectionMode === 'MOCK' ? 'DEMO MODE' : conn.status === 'CONNECTED' ? 'CONECTADO (XML-RPC)' : conn.status === 'ERROR' ? 'ERROR CONEXIÓN' : 'SIN VERIFICAR'}
+                                {conn.connectionMode === 'MOCK' ? 'MODO DEMO' : conn.status === 'CONNECTED' ? 'ONLINE' : conn.status === 'ERROR' ? 'OFFLINE' : 'PENDIENTE'}
                             </span>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm bg-gray-50 p-3 rounded-lg border border-gray-100">
                         <div>
                             <p className="text-gray-400 text-xs uppercase font-bold">Base de Datos</p>
-                            <p className="font-medium text-gray-700">{conn.db}</p>
+                            <p className="font-medium text-gray-700 truncate" title={conn.db}>{conn.db}</p>
                         </div>
                         <div>
                             <p className="text-gray-400 text-xs uppercase font-bold">Usuario</p>
-                            <p className="font-medium text-gray-700">{conn.user}</p>
+                            <p className="font-medium text-gray-700 truncate" title={conn.user}>{conn.user}</p>
                         </div>
                         <div>
                             <p className="text-gray-400 text-xs uppercase font-bold">API Key</p>
-                            <p className="font-medium text-gray-700 font-mono">••••••{conn.apiKey.slice(-4)}</p>
+                            <p className="font-medium text-gray-700 font-mono">••••{conn.apiKey.slice(-3)}</p>
                         </div>
                          <div>
-                            <p className="text-gray-400 text-xs uppercase font-bold">Empresas</p>
+                            <p className="text-gray-400 text-xs uppercase font-bold">Compañías</p>
                             <p className="font-medium text-gray-700">
-                                {conn.companies?.length > 0 ? `${conn.companies.length} detectadas` : '-'}
+                                {conn.companies?.length > 0 ? `${conn.companies.length} disp.` : '-'}
                             </p>
                         </div>
                     </div>
@@ -276,17 +289,19 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                     <button 
                         onClick={() => testConnection(conn)}
                         disabled={testing === conn.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:border-odoo-secondary hover:text-odoo-secondary text-gray-700 px-4 py-2 rounded-lg transition-all text-sm font-medium shadow-sm"
+                        className={`flex-1 flex items-center justify-center gap-2 border px-4 py-2 rounded-lg transition-all text-sm font-bold shadow-sm
+                            ${testing === conn.id ? 'bg-gray-100 text-gray-500 cursor-wait' : 'bg-white text-gray-700 hover:text-odoo-primary hover:border-odoo-primary'}
+                        `}
                     >
                         {testing === conn.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
-                        <span>{testing === conn.id ? 'Conectando...' : 'Conectar'}</span>
+                        <span>{testing === conn.id ? 'Probando...' : 'Conectar'}</span>
                     </button>
                     <button 
                         onClick={() => onRemoveConnection(conn.id)}
                         className="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:border-red-500 hover:text-red-500 text-gray-700 px-4 py-2 rounded-lg transition-all text-sm font-medium shadow-sm"
                     >
                         <Trash2 size={16} />
-                        <span>Eliminar</span>
+                        <span>Borrar</span>
                     </button>
                 </div>
             </div>
