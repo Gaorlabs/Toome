@@ -172,4 +172,15 @@ export class OdooClient {
   async searchRead(uid: number, apiKey: string, model: string, domain: any[], fields: string[], options: any = {}) {
     return await this.executeKw(uid, apiKey, model, 'search_read', [domain], { fields, ...options });
   }
+
+  /**
+   * Helper común: Read Group (Agregación Servidor)
+   */
+  async readGroup(uid: number, apiKey: string, model: string, domain: any[], fields: string[], groupby: string[]) {
+    return await this.executeKw(uid, apiKey, model, 'read_group', [], { 
+        domain, 
+        fields, 
+        groupby 
+    });
+  }
 }
