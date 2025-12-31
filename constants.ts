@@ -10,8 +10,8 @@ export const MOCK_KPIS: KPI[] = [
 ];
 
 export const MOCK_BRANCHES: BranchKPI[] = [
-  { id: '1', name: 'Farmacia Central', sales: 0, margin: 0, target: 1000, profitability: 0, status: 'OPEN' },
-  { id: '2', name: 'Sucursal Norte', sales: 0, margin: 0, target: 1000, profitability: 0, status: 'CLOSED' }
+  { id: '1', name: 'Farmacia Central', sales: 0, margin: 0, target: 1000, profitability: 0, status: 'OPEN', transactionCount: 0, cashier: '---' },
+  { id: '2', name: 'Sucursal Norte', sales: 0, margin: 0, target: 1000, profitability: 0, status: 'CLOSED', transactionCount: 0, cashier: '---' }
 ];
 
 export const MOCK_SALES_DATA: SalesData[] = [];

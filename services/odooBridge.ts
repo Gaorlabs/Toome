@@ -67,7 +67,6 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
         const uid = await client.authenticate(connection.user, connection.apiKey);
         
         // Fetch POS configs
-        // Important: limit to avoid timeout on large DBs, ask for company_id explicitly
         const posConfigs = await client.searchRead(
             uid,
             connection.apiKey,
@@ -83,7 +82,7 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
 
     } catch (e) {
         console.error("Error fetching POS Configs:", e);
-        return null; // Return null on error so UI knows it failed, vs empty array []
+        return null; 
     }
 };
 
@@ -99,29 +98,23 @@ const getDateDomain = (period: 'HOY' | 'MES' | 'AÑO', dateField: string, isDate
     let dateStr = '';
 
     if (period === 'HOY') {
-        // Para "Hoy", usaremos el formato string simple YYYY-MM-DD
-        // Odoo interpretará esto automáticamente como "Desde el inicio del día en la zona horaria del usuario"
-        // Evitamos poner horas fijas para no romper UTC vs Local.
-        dateStr = `${y}-${m}-${d}`;
+        // Enviar formato Datetime explícito para inicio de día.
+        // Odoo interpretará esto en su contexto, pero ayuda a filtrar.
+        dateStr = `${y}-${m}-${d} 00:00:00`;
     } else if (period === 'MES') {
-        dateStr = `${y}-${m}-01`;
+        dateStr = `${y}-${m}-01 00:00:00`;
     } else if (period === 'AÑO') {
-        dateStr = `${y}-01-01`;
-    }
-
-    // Para campos datetime, añadir 00:00:00 es estándar si Odoo está en UTC, pero 
-    // a veces enviar solo la fecha es más seguro si hay mucho desfase. 
-    // Sin embargo, Odoo XMLRPC suele requerir formato completo para datetime.
-    if (isDatetime) {
-        dateStr += ' 00:00:00'; 
+        dateStr = `${y}-01-01 00:00:00`;
     }
 
     return [dateField, '>=', dateStr];
 };
 
 /**
- * DATOS EN TIEMPO REAL
- * Soporta filtros temporales (HOY, MES, AÑO) usando Agregación nativa de Odoo
+ * DATOS EN TIEMPO REAL - CORAZÓN DEL SISTEMA
+ * 1. Obtiene las cajas permitidas.
+ * 2. Consulta pos.session para saber estado REAL (Abierto/Cerrado) y cajero actual.
+ * 3. Consulta pos.order para sumar ventas.
  */
 export const fetchOdooRealTimeData = async (
     connection: OdooConnection, 
@@ -136,19 +129,17 @@ export const fetchOdooRealTimeData = async (
     totalItems: number
 }> => {
   
+  // MOCK DATA
   if (connection.connectionMode === 'MOCK') {
       const multiplier = period === 'AÑO' ? 12 : period === 'MES' ? 4 : 1;
       return {
           salesData: [
               { date: '2025-01-20', sales: 1200 * multiplier, margin: 400 * multiplier, transactions: 15 },
-              { date: '2025-01-21', sales: 1500 * multiplier, margin: 550 * multiplier, transactions: 20 },
-              { date: '2025-01-22', sales: 900 * multiplier, margin: 300 * multiplier, transactions: 12 },
-              { date: '2025-01-23', sales: 2100 * multiplier, margin: 800 * multiplier, transactions: 28 },
               { date: '2025-01-24', sales: 2830 * multiplier, margin: 950 * multiplier, transactions: 35 },
           ],
           branches: [
-              { id: '1', name: 'Farmacia Central', sales: 5800 * multiplier, margin: 2100 * multiplier, target: 5000, profitability: 36.2, status: 'OPEN' },
-              { id: '2', name: 'Sucursal Surco', sales: 2730 * multiplier, margin: 900 * multiplier, target: 3000, profitability: 32.9, status: 'CLOSED' }
+              { id: '1', name: 'Farmacia Central', sales: 5800 * multiplier, margin: 2100 * multiplier, target: 5000, profitability: 36.2, status: 'OPEN', transactionCount: 45, cashier: 'Juan Pérez' },
+              { id: '2', name: 'Sucursal Surco', sales: 2730 * multiplier, margin: 900 * multiplier, target: 3000, profitability: 32.9, status: 'CLOSED', transactionCount: 22, cashier: 'Ana Lopez' }
           ],
           totalSales: 8530 * multiplier,
           totalMargin: 3000 * multiplier,
@@ -160,36 +151,79 @@ export const fetchOdooRealTimeData = async (
     const client = getClient(connection);
     const uid = await client.authenticate(connection.user, connection.apiKey);
 
-    // 1. Construir Dominio de Fecha (date_order is Datetime)
-    const dateDomain = getDateDomain(period, 'date_order', true);
-    
-    // Dominio Base
-    const domain: any[] = [
-        ['state', 'in', ['paid', 'done', 'invoiced']],
-        dateDomain
-    ];
-    
-    // Filtros de Seguridad
-    if (allowedCompanyIds && allowedCompanyIds.length > 0) {
-        const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
-        if (compIdsInt.length > 0) domain.push(['company_id', 'in', compIdsInt]);
-    }
+    // --- PASO 1: DEFINIR EL ALCANCE (CAJAS A CONSULTAR) ---
+    // Si no hay filtro de ID, traer todas las cajas activas.
+    let configDomain: any[] = [];
     if (allowedPosIds && allowedPosIds.length > 0) {
-        domain.push(['config_id', 'in', allowedPosIds]);
+        configDomain.push(['id', 'in', allowedPosIds]);
+    } else if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+        const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+        configDomain.push(['company_id', 'in', compIdsInt]);
     }
 
-    // 2. Ejecutar Agregación (READ_GROUP)
+    // Obtenemos los nombres de las cajas primero para inicializar el mapa
+    const configs = await client.searchRead(uid, connection.apiKey, 'pos.config', configDomain, ['id', 'name']);
+    const branchesMap: Record<string, BranchKPI> = {};
+
+    if (Array.isArray(configs)) {
+        configs.forEach((cfg: any) => {
+            branchesMap[cfg.id] = {
+                id: cfg.id.toString(),
+                name: cfg.name,
+                sales: 0,
+                margin: 0,
+                target: 0,
+                profitability: 0,
+                status: 'CLOSED',
+                transactionCount: 0,
+                cashier: '---'
+            };
+        });
+    }
+
+    // --- PASO 2: OBTENER ESTADO ACTUAL (SESIONES) ---
+    // Consultamos pos.session para ver quién está logueado y si está abierto
+    const sessionDomain = [
+        ['state', '!=', 'closed'], // Solo sesiones activas o cerrando
+        ['config_id', 'in', Object.keys(branchesMap).map(Number)]
+    ];
+    
+    const activeSessions = await client.searchRead(
+        uid, 
+        connection.apiKey, 
+        'pos.session', 
+        sessionDomain, 
+        ['config_id', 'user_id', 'state']
+    );
+
+    if (Array.isArray(activeSessions)) {
+        activeSessions.forEach((sess: any) => {
+             const configId = Array.isArray(sess.config_id) ? sess.config_id[0] : sess.config_id;
+             if (branchesMap[configId]) {
+                 const st = sess.state;
+                 branchesMap[configId].status = (st === 'opened' || st === 'opening_control') ? 'OPEN' : 'CLOSING_CONTROL';
+                 branchesMap[configId].cashier = Array.isArray(sess.user_id) ? sess.user_id[1] : 'Usuario';
+             }
+        });
+    }
+
+    // --- PASO 3: OBTENER VENTAS (AGREGACIÓN) ---
+    const dateDomain = getDateDomain(period, 'date_order', true);
+    const orderDomain: any[] = [
+        ['state', 'in', ['paid', 'done', 'invoiced']],
+        dateDomain,
+        ['config_id', 'in', Object.keys(branchesMap).map(Number)]
+    ];
+
     const posGroups = await client.readGroup(
         uid, connection.apiKey, 
         'pos.order',
-        domain,
+        orderDomain,
         ['amount_total', 'date_order', 'config_id'], 
         ['date_order:day', 'config_id'] 
     );
 
-    // Procesar resultados agregados
     const salesByDate: Record<string, number> = {};
-    const branchesMap: Record<string, BranchKPI> = {};
     let totalSales = 0;
     let totalItems = 0;
 
@@ -197,30 +231,17 @@ export const fetchOdooRealTimeData = async (
         for (const group of posGroups) {
             const amt = group.amount_total || 0;
             const count = group.config_id_count || 0; 
-            
             const dateKey = group['date_order:day'] || 'N/A';
             
             if (!salesByDate[dateKey]) salesByDate[dateKey] = 0;
             salesByDate[dateKey] += amt;
 
-            // Handle Branch Mapping
             if (group.config_id) {
-                // config_id comes as [id, "Name"] usually in read_group if grouped
                 const bId = Array.isArray(group.config_id) ? group.config_id[0] : group.config_id;
-                const bName = Array.isArray(group.config_id) ? group.config_id[1] : `Caja ${bId}`;
-                
-                if (!branchesMap[bId]) {
-                    branchesMap[bId] = {
-                        id: bId.toString(),
-                        name: bName,
-                        sales: 0,
-                        margin: 0,
-                        target: 0,
-                        profitability: 0,
-                        status: 'OPEN'
-                    };
+                if (branchesMap[bId]) {
+                    branchesMap[bId].sales += amt;
+                    branchesMap[bId].transactionCount += count;
                 }
-                branchesMap[bId].sales += amt;
             }
 
             totalSales += amt;
@@ -228,17 +249,17 @@ export const fetchOdooRealTimeData = async (
         }
     }
 
+    // Calcular márgenes estimados
     Object.values(branchesMap).forEach(b => {
-        b.margin = b.sales * 0.35; 
-        b.profitability = 35.0;
+        b.margin = b.sales * 0.30; // Estimado 30%
+        b.profitability = 30.0;
     });
 
-    const totalMargin = totalSales * 0.35;
-
+    const totalMargin = totalSales * 0.30;
     const salesData: SalesData[] = Object.entries(salesByDate).map(([date, sales]) => ({
         date,
         sales,
-        margin: sales * 0.35,
+        margin: sales * 0.30,
         transactions: 0
     }));
 

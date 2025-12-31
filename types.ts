@@ -22,7 +22,9 @@ export interface BranchKPI {
   margin: number;
   target: number; 
   profitability: number; // percentage
-  status: 'OPEN' | 'CLOSED';
+  status: 'OPEN' | 'CLOSED' | 'OPENING_CONTROL' | 'CLOSING_CONTROL';
+  cashier?: string; // Nombre del cajero/usuario actual
+  transactionCount: number;
 }
 
 export interface ProductPerformance {
