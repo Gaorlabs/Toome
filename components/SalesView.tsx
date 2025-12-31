@@ -1,28 +1,41 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Filter, Download, FileText, RefreshCw } from 'lucide-react';
-import { SalesRegisterItem } from '../types';
+import { ShoppingCart, Search, Filter, Download, FileText, RefreshCw, Calendar } from 'lucide-react';
+import { SalesRegisterItem, UserSession } from '../types';
 import { fetchSalesRegister } from '../services/odooBridge';
 import { OdooConnection } from '../types';
 
 interface SalesViewProps {
     connection?: OdooConnection | null;
+    userSession?: UserSession | null;
 }
 
-export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
+export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('Todos');
+  const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO'>('MES');
   const [sales, setSales] = useState<SalesRegisterItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-      // Load mock data immediately if no connection, or real data if connection
       loadData();
-  }, [connection]);
+  }, [connection, dateFilter]);
 
   const loadData = async () => {
       setLoading(true);
-      const data = await fetchSalesRegister(connection || { connectionMode: 'MOCK' } as any);
+      
+      let allowedCompanyIds: string[] | undefined = undefined;
+      
+      // Extract allowed companies from session if it's a CLIENT user
+      if (userSession?.role === 'CLIENT' && userSession.clientData) {
+          allowedCompanyIds = userSession.clientData.allowedCompanyIds;
+      }
+
+      const data = await fetchSalesRegister(
+          connection || { connectionMode: 'MOCK' } as any, 
+          dateFilter,
+          allowedCompanyIds
+      );
       setSales(data);
       setLoading(false);
   };
@@ -40,22 +53,37 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-gray-200 pb-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <FileText className="text-odoo-primary" /> Registro de Ventas (SUNAT)
+              <FileText className="text-odoo-primary" /> Ventas Detalladas
           </h2>
-          <p className="text-gray-500 text-sm">Formato contable detallado por comprobante de pago.</p>
+          <p className="text-gray-500 text-sm">Registro de comprobantes sincronizado en tiempo real.</p>
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex flex-col md:flex-row gap-3">
+             <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                 {['HOY', 'MES', 'AÑO'].map(filter => (
+                     <button
+                        key={filter}
+                        onClick={() => setDateFilter(filter as any)}
+                        className={`px-4 py-2 text-xs font-bold rounded-md transition-all ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                     >
+                         {filter}
+                     </button>
+                 ))}
+             </div>
+            
             <button 
                 onClick={loadData}
-                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50"
+                disabled={loading}
+                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium disabled:opacity-50"
             >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Actualizar
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
+                <span>{loading ? 'Sincronizando...' : 'Actualizar'}</span>
             </button>
-            <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-                <Download size={16} /> Exportar PLE (TXT)
+            <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm">
+                <Download size={16} /> PLE
             </button>
         </div>
       </div>
@@ -65,6 +93,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase">Documentos</p>
               <h3 className="text-2xl font-bold text-gray-800 mt-1">{filtered.length}</h3>
+              <p className="text-[10px] text-gray-400 mt-1">Periodo: {dateFilter}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase">Base Imponible</p>
@@ -95,7 +124,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
                   placeholder="Buscar por Cliente, RUC, Serie o Número..." 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-odoo-primary focus:border-odoo-primary outline-none"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-odoo-primary focus:border-odoo-primary outline-none text-sm"
               />
           </div>
           <div className="flex items-center gap-2">
@@ -103,7 +132,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
               <select 
                 value={docTypeFilter} 
                 onChange={(e) => setDocTypeFilter(e.target.value)}
-                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-odoo-primary focus:border-odoo-primary p-2.5"
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-odoo-primary focus:border-odoo-primary p-2.5 outline-none"
               >
                   <option value="Todos">Todos los Documentos</option>
                   <option value="Factura">Facturas (01)</option>
@@ -114,25 +143,25 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
       </div>
 
       {/* Spreadsheet Table */}
-      <div className="bg-white border border-gray-200 shadow-sm overflow-hidden spreadsheet-grid">
+      <div className="bg-white border border-gray-200 shadow-sm overflow-hidden spreadsheet-grid rounded-lg">
           <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-gray-700">
                   <thead className="sheet-header">
                       <tr>
-                          <th className="px-4 py-3 border-r border-gray-200">Emisión</th>
-                          <th className="px-4 py-3 border-r border-gray-200">Tipo</th>
-                          <th className="px-4 py-3 border-r border-gray-200">Serie-Número</th>
-                          <th className="px-4 py-3 border-r border-gray-200">Doc. Identidad</th>
-                          <th className="px-4 py-3 border-r border-gray-200">Razón Social / Nombre</th>
-                          <th className="px-4 py-3 border-r border-gray-200 text-right">Base Imp.</th>
-                          <th className="px-4 py-3 border-r border-gray-200 text-right">IGV</th>
-                          <th className="px-4 py-3 border-r border-gray-200 text-right">Total</th>
-                          <th className="px-4 py-3 text-center">Estado</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50">Emisión</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50">Tipo</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50">Serie-Número</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50">Doc. Identidad</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50">Razón Social / Nombre</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50 text-right">Base Imp.</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50 text-right">IGV</th>
+                          <th className="px-4 py-3 border-r border-gray-200 bg-gray-50 text-right">Total</th>
+                          <th className="px-4 py-3 bg-gray-50 text-center">Estado</th>
                       </tr>
                   </thead>
                   <tbody>
                       {filtered.map((t) => (
-                          <tr key={t.id} className="sheet-row hover:bg-blue-50">
+                          <tr key={t.id} className="sheet-row hover:bg-blue-50 transition-colors">
                               <td className="px-4 py-2 border-r border-gray-100">{t.date}</td>
                               <td className="px-4 py-2 border-r border-gray-100 font-medium">
                                   {t.documentType === 'Factura' ? '01-FACTURA' : t.documentType === 'Boleta' ? '03-BOLETA' : t.documentType.toUpperCase()}
@@ -150,21 +179,30 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection }) => {
                               <td className="px-4 py-2 border-r border-gray-100 text-right font-bold">{t.totalAmount.toFixed(2)}</td>
                               <td className="px-4 py-2 text-center">
                                   {t.status === 'Emitido' ? (
-                                      <span className="text-green-600 font-bold">OK</span>
+                                      <span className="text-green-600 font-bold text-[10px]">OK</span>
                                   ) : (
-                                      <span className="text-red-500 font-bold">ANULADO</span>
+                                      <span className="text-red-500 font-bold text-[10px]">ANULADO</span>
                                   )}
                               </td>
                           </tr>
                       ))}
+                      {filtered.length === 0 && !loading && (
+                           <tr>
+                               <td colSpan={9} className="p-8 text-center text-gray-400 italic">
+                                   No se encontraron registros para el periodo {dateFilter}.
+                               </td>
+                           </tr>
+                      )}
+                      {loading && (
+                          <tr>
+                              <td colSpan={9} className="p-8 text-center text-odoo-primary italic">
+                                  Cargando datos de Odoo...
+                              </td>
+                          </tr>
+                      )}
                   </tbody>
               </table>
           </div>
-          {filtered.length === 0 && (
-              <div className="p-8 text-center text-gray-400">
-                  No se encontraron comprobantes.
-              </div>
-          )}
       </div>
     </div>
   );

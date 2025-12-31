@@ -432,7 +432,7 @@ export default function App() {
                    <AgendaModule connection={selectedConnection} />
                )}
                {currentView === ViewMode.CUSTOMERS && (
-                   <SalesView />
+                   <SalesView connection={selectedConnection} userSession={session} />
                )}
                {currentView === ViewMode.REPORTS && (
                    <ReportsView />

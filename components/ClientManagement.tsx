@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ClientAccess, OdooConnection, AppModule, PosConfig } from '../types';
-import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Calendar, LogIn, Edit2, Store } from 'lucide-react';
+import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Calendar, LogIn, Edit2, Store, AlertCircle, AlertTriangle, ArrowRight } from 'lucide-react';
 import { fetchPosConfigs } from '../services/odooBridge';
 
 interface ClientManagementProps {
@@ -10,7 +10,7 @@ interface ClientManagementProps {
   onCreateClient: (client: Omit<ClientAccess, 'id' | 'createdAt'>) => void;
   onDeleteClient: (id: string) => void;
   onSimulateLogin: (key: string) => void;
-  onUpdateClient?: (id: string, updates: Partial<ClientAccess>) => void; // New prop for updating
+  onUpdateClient?: (id: string, updates: Partial<ClientAccess>) => void; 
 }
 
 export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, connections, onCreateClient, onDeleteClient, onSimulateLogin, onUpdateClient }) => {
@@ -20,12 +20,13 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   // Form State
   const [newClientName, setNewClientName] = useState('');
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]);
-  const [selectedPosIds, setSelectedPosIds] = useState<number[]>([]); // New: Specific POS selection
+  const [selectedPosIds, setSelectedPosIds] = useState<number[]>([]); 
   const [selectedModules, setSelectedModules] = useState<AppModule[]>(['DASHBOARD']);
   
   // Available POS fetched from connections
-  const [availablePos, setAvailablePos] = useState<Record<string, PosConfig[]>>({}); // Map connectionId -> POS[]
+  const [availablePos, setAvailablePos] = useState<Record<string, PosConfig[]>>({}); 
   const [loadingPos, setLoadingPos] = useState(false);
+  const [posError, setPosError] = useState<string | null>(null);
 
   const generateKey = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -38,22 +39,31 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   
   const [generatedKey, setGeneratedKey] = useState(generateKey());
 
-  // Load POS configurations when connections change or component mounts
-  useEffect(() => {
-      const loadPos = async () => {
-          setLoadingPos(true);
-          const posMap: Record<string, PosConfig[]> = {};
-          
-          for (const conn of connections) {
-              if (conn.status === 'CONNECTED') {
-                  const configs = await fetchPosConfigs(conn);
-                  posMap[conn.id] = configs;
+  const loadPos = async () => {
+      setLoadingPos(true);
+      setPosError(null);
+      const posMap: Record<string, PosConfig[]> = {};
+      let hasError = false;
+      
+      for (const conn of connections) {
+          if (conn.status === 'CONNECTED') {
+              try {
+                const configs = await fetchPosConfigs(conn);
+                if (configs && configs.length > 0) {
+                    posMap[conn.id] = configs;
+                }
+              } catch (e) {
+                  console.error("Failed to load POS for " + conn.name);
+                  hasError = true;
               }
           }
-          setAvailablePos(posMap);
-          setLoadingPos(false);
-      };
-      
+      }
+      setAvailablePos(posMap);
+      setLoadingPos(false);
+      if (hasError) setPosError("Algunas conexiones no pudieron cargar la lista de Cajas.");
+  };
+
+  useEffect(() => {
       if (connections.length > 0) {
           loadPos();
       }
@@ -72,7 +82,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   const startEdit = (client: ClientAccess) => {
       setEditingClient(client);
       setNewClientName(client.name);
-      setGeneratedKey(client.accessKey); // Preserve key
+      setGeneratedKey(client.accessKey); 
       setSelectedCompanyIds(client.allowedCompanyIds || []);
       setSelectedPosIds(client.allowedPosIds || []);
       setSelectedModules(client.allowedModules || []);
@@ -88,7 +98,6 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
         .map(conn => conn.id);
 
     if (editingClient && onUpdateClient) {
-        // Update existing
         onUpdateClient(editingClient.id, {
             name: newClientName,
             assignedConnectionIds: assignedConnIds,
@@ -97,7 +106,6 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
             allowedModules: selectedModules
         });
     } else {
-        // Create new
         onCreateClient({
             name: newClientName,
             accessKey: generatedKey,
@@ -113,7 +121,6 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   const toggleCompany = (companyId: string) => {
     if (selectedCompanyIds.includes(companyId)) {
       setSelectedCompanyIds(selectedCompanyIds.filter(id => id !== companyId));
-      // Optionally deselect POS belonging to this company? For now, keep simple.
     } else {
       setSelectedCompanyIds([...selectedCompanyIds, companyId]);
     }
@@ -221,92 +228,129 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
 
             {/* Connection Assignment Tree */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                 <Database size={16} /> 
-                 Selección de Sedes y Cajas (POS)
-              </label>
-              
-              {loadingPos && <p className="text-xs text-gray-500 mb-2 animate-pulse">Cargando cajas disponibles...</p>}
-
-              <div className="grid grid-cols-1 gap-4 border border-gray-200 rounded-xl p-4 bg-gray-50/50">
-                  {connections.map(conn => (
-                      <div key={conn.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                          {/* Connection Header */}
-                          <div className="bg-gray-50 p-3 flex items-center justify-between border-b border-gray-100">
-                              <div className="flex items-center gap-2">
-                                  <div className={`w-2 h-2 rounded-full ${conn.status === 'CONNECTED' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                  <span className="font-bold text-sm text-gray-700">{conn.name}</span>
-                              </div>
-                              <button 
-                                type="button"
-                                onClick={() => toggleAllCompaniesInConnection(conn)}
-                                className="text-xs text-odoo-secondary font-medium hover:underline"
-                              >
-                                  Sel. Todas Cias.
-                              </button>
-                          </div>
-                          
-                          {/* Companies & POS List */}
-                          <div className="p-3 grid grid-cols-1 gap-4">
-                              {conn.companies.map(comp => {
-                                  const isSelected = selectedCompanyIds.includes(comp.id);
-                                  // Find POS for this company
-                                  const companyPos = availablePos[conn.id]?.filter(p => 
-                                    Array.isArray(p.company_id) && p.company_id[0].toString() === comp.id
-                                  ) || [];
-
-                                  return (
-                                      <div key={comp.id} className="border rounded-md p-2">
-                                          {/* Company Checkbox */}
-                                          <div 
-                                            onClick={() => toggleCompany(comp.id)}
-                                            className={`cursor-pointer flex items-center mb-2`}
-                                          >
-                                              <div className={`
-                                                  w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors
-                                                  ${isSelected ? 'bg-odoo-primary border-odoo-primary text-white' : 'border-gray-300 bg-white'}
-                                              `}>
-                                                  {isSelected && <CheckSquare size={10} />}
-                                              </div>
-                                              <span className={`text-sm ${isSelected ? 'font-bold text-gray-800' : 'text-gray-600'}`}>
-                                                  {comp.name}
-                                              </span>
-                                          </div>
-
-                                          {/* Nested POS List */}
-                                          {isSelected && companyPos.length > 0 && (
-                                              <div className="ml-7 pl-3 border-l-2 border-gray-100 space-y-1">
-                                                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Cajas Disponibles:</p>
-                                                  {companyPos.map(pos => {
-                                                      const isPosSelected = selectedPosIds.includes(pos.id);
-                                                      return (
-                                                          <div 
-                                                            key={pos.id}
-                                                            onClick={() => togglePos(pos.id)}
-                                                            className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded"
-                                                          >
-                                                              <div className={`w-3 h-3 rounded-sm border mr-2 flex items-center justify-center ${isPosSelected ? 'bg-odoo-secondary border-odoo-secondary' : 'border-gray-300'}`}>
-                                                                  {isPosSelected && <div className="w-1.5 h-1.5 bg-white rounded-sm"></div>}
-                                                              </div>
-                                                              <div className="flex items-center gap-1">
-                                                                  <Store size={12} className="text-gray-400" />
-                                                                  <span className="text-xs text-gray-700">{pos.name}</span>
-                                                              </div>
-                                                          </div>
-                                                      );
-                                                  })}
-                                              </div>
-                                          )}
-                                          {isSelected && companyPos.length === 0 && (
-                                              <p className="ml-7 text-xs text-gray-400 italic">No se encontraron cajas configuradas.</p>
-                                          )}
-                                      </div>
-                                  )
-                              })}
-                          </div>
-                      </div>
-                  ))}
+              <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                     <Database size={16} /> 
+                     Selección de Sedes y Cajas (POS)
+                  </label>
+                  <button 
+                    type="button" 
+                    onClick={loadPos} 
+                    className="text-xs text-odoo-primary flex items-center gap-1 hover:underline"
+                    disabled={loadingPos}
+                  >
+                    <RefreshCw size={12} className={loadingPos ? 'animate-spin' : ''} /> Actualizar Cajas
+                  </button>
               </div>
+              
+              {loadingPos && <p className="text-xs text-gray-500 mb-2 animate-pulse">Sincronizando configuración de cajas...</p>}
+              {posError && <p className="text-xs text-red-500 mb-2 flex items-center gap-1"><AlertCircle size={12}/> {posError}</p>}
+
+              {connections.length === 0 ? (
+                  <div className="border border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50">
+                      <Database size={32} className="mx-auto text-gray-300 mb-2"/>
+                      <p className="text-sm text-gray-500">No tienes conexiones a Odoo configuradas.</p>
+                      <p className="text-xs text-gray-400">Ve a "Conexiones Odoo" para agregar tu primera base de datos.</p>
+                  </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+                    {connections.map(conn => (
+                        <div key={conn.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            {/* Connection Header */}
+                            <div className="bg-gray-50 p-3 flex items-center justify-between border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${conn.status === 'CONNECTED' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                    <span className="font-bold text-sm text-gray-700">{conn.name}</span>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => toggleAllCompaniesInConnection(conn)}
+                                  className="text-xs text-odoo-secondary font-medium hover:underline"
+                                  disabled={conn.companies.length === 0}
+                                >
+                                    Sel. Todas Cias.
+                                </button>
+                            </div>
+                            
+                            {/* Companies & POS List */}
+                            <div className="p-3">
+                                {conn.companies.length === 0 ? (
+                                    <div className="flex items-center gap-3 bg-yellow-50 text-yellow-800 p-3 rounded-md border border-yellow-200">
+                                        <AlertTriangle size={20} className="flex-shrink-0" />
+                                        <div>
+                                            <p className="text-xs font-bold">Sin información de compañías</p>
+                                            <p className="text-[10px]">
+                                                Debes probar la conexión en el módulo "Conexiones Odoo" para descargar la lista de sedes.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-4">
+                                    {conn.companies.map(comp => {
+                                        const isSelected = selectedCompanyIds.includes(comp.id);
+                                        // Find POS for this company
+                                        const companyPos = availablePos[conn.id]?.filter(p => {
+                                          if (!p.company_id) return false;
+                                          const pCompId = Array.isArray(p.company_id) ? p.company_id[0] : p.company_id;
+                                          return String(pCompId) === String(comp.id);
+                                        }) || [];
+
+                                        return (
+                                            <div key={comp.id} className="border rounded-md p-2">
+                                                {/* Company Checkbox */}
+                                                <div 
+                                                  onClick={() => toggleCompany(comp.id)}
+                                                  className={`cursor-pointer flex items-center mb-2`}
+                                                >
+                                                    <div className={`
+                                                        w-4 h-4 rounded border flex items-center justify-center mr-3 transition-colors
+                                                        ${isSelected ? 'bg-odoo-primary border-odoo-primary text-white' : 'border-gray-300 bg-white'}
+                                                    `}>
+                                                        {isSelected && <CheckSquare size={10} />}
+                                                    </div>
+                                                    <span className={`text-sm ${isSelected ? 'font-bold text-gray-800' : 'text-gray-600'}`}>
+                                                        {comp.name}
+                                                    </span>
+                                                </div>
+
+                                                {/* Nested POS List */}
+                                                {isSelected && (
+                                                    <div className="ml-7 pl-3 border-l-2 border-gray-100 space-y-1">
+                                                        <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Cajas Disponibles:</p>
+                                                        {companyPos.length > 0 ? companyPos.map(pos => {
+                                                            const isPosSelected = selectedPosIds.includes(pos.id);
+                                                            return (
+                                                                <div 
+                                                                  key={pos.id}
+                                                                  onClick={() => togglePos(pos.id)}
+                                                                  className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded"
+                                                                >
+                                                                    <div className={`w-3 h-3 rounded-sm border mr-2 flex items-center justify-center ${isPosSelected ? 'bg-odoo-secondary border-odoo-secondary' : 'border-gray-300'}`}>
+                                                                        {isPosSelected && <div className="w-1.5 h-1.5 bg-white rounded-sm"></div>}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Store size={12} className="text-gray-400" />
+                                                                        <span className="text-xs text-gray-700">{pos.name}</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }) : (
+                                                            <p className="text-[10px] text-orange-400 italic">
+                                                                No se detectaron cajas o falta permiso de lectura en 'pos.config'.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              )}
             </div>
 
             {/* Module Permissions */}
@@ -455,6 +499,13 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
                 </td>
               </tr>
             ))}
+            {clients.length === 0 && (
+                <tr>
+                    <td colSpan={5} className="p-8 text-center text-gray-400">
+                        No hay clientes configurados. Crea uno nuevo para empezar.
+                    </td>
+                </tr>
+            )}
           </tbody>
         </table>
       </div>

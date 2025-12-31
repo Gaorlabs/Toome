@@ -66,20 +66,61 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
         const client = getClient(connection);
         const uid = await client.authenticate(connection.user, connection.apiKey);
         
+        // Fetch POS configs
+        // Important: limit to avoid timeout on large DBs, ask for company_id explicitly
         const posConfigs = await client.searchRead(
             uid,
             connection.apiKey,
             'pos.config',
             [], 
-            ['name', 'company_id']
+            ['name', 'company_id'],
+            { limit: 1000 }
         );
         
+        if (!Array.isArray(posConfigs)) return [];
+
         return posConfigs as PosConfig[];
 
     } catch (e) {
         console.error("Error fetching POS Configs:", e);
         return [];
     }
+};
+
+/**
+ * Genera el filtro de fecha.
+ * @param isDatetime: true para pos.order (YYYY-MM-DD HH:MM:SS), false para account.move (YYYY-MM-DD)
+ */
+const getDateDomain = (period: 'HOY' | 'MES' | 'AÑO', dateField: string, isDatetime: boolean) => {
+    const now = new Date();
+    let startDate = new Date();
+    
+    // Set to local midnight to avoid timezone issues when checking "Today"
+    if (period === 'HOY') {
+        startDate.setHours(0,0,0,0);
+    } else if (period === 'MES') {
+        startDate.setDate(1); 
+        startDate.setHours(0,0,0,0);
+    } else if (period === 'AÑO') {
+        startDate.setMonth(0, 1);
+        startDate.setHours(0,0,0,0);
+    }
+
+    // Convert to string in YYYY-MM-DD format
+    const year = startDate.getFullYear();
+    const month = String(startDate.getMonth() + 1).padStart(2, '0');
+    const day = String(startDate.getDate()).padStart(2, '0');
+    let dateStr = `${year}-${month}-${day}`;
+
+    if (isDatetime) {
+        // If it's a datetime field, Odoo expects UTC usually, but for local comparison >= midnight local works best
+        // if using plain string. Ideally we append time.
+        // Assuming Server is UTC, "Today" starts at yesterday's evening in some zones.
+        // For simplicity and XMLRPC safety, we send YYYY-MM-DD 00:00:00 which Odoo interprets.
+        dateStr += ' 00:00:00';
+    }
+
+    return [dateField, '>=', dateStr];
 };
 
 /**
@@ -123,26 +164,13 @@ export const fetchOdooRealTimeData = async (
     const client = getClient(connection);
     const uid = await client.authenticate(connection.user, connection.apiKey);
 
-    // 1. Construir Dominio de Fecha
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (period === 'HOY') {
-        startDate.setHours(0,0,0,0); // Inicio del día
-    } else if (period === 'MES') {
-        startDate.setDate(1); 
-        startDate.setHours(0,0,0,0); // Inicio del mes
-    } else if (period === 'AÑO') {
-        startDate.setMonth(0, 1);
-        startDate.setHours(0,0,0,0); // Inicio del año
-    }
-
-    const dateStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+    // 1. Construir Dominio de Fecha (date_order is Datetime)
+    const dateDomain = getDateDomain(period, 'date_order', true);
     
     // Dominio Base
     const domain: any[] = [
         ['state', 'in', ['paid', 'done', 'invoiced']],
-        ['date_order', '>=', dateStr]
+        dateDomain
     ];
     
     // Filtros de Seguridad
@@ -155,13 +183,12 @@ export const fetchOdooRealTimeData = async (
     }
 
     // 2. Ejecutar Agregación (READ_GROUP)
-    // Esto es mucho más rápido que descargar miles de registros
     const posGroups = await client.readGroup(
         uid, connection.apiKey, 
         'pos.order',
         domain,
-        ['amount_total', 'date_order', 'config_id'], // Campos a sumar/agrupar
-        ['date_order:day', 'config_id'] // Agrupar por día y por caja
+        ['amount_total', 'date_order', 'config_id'], 
+        ['date_order:day', 'config_id'] 
     );
 
     // Procesar resultados agregados
@@ -170,24 +197,21 @@ export const fetchOdooRealTimeData = async (
     let totalSales = 0;
     let totalItems = 0;
 
-    // Si Odoo devuelve error o vacío en read_group, intentar fallback
     if (Array.isArray(posGroups)) {
         for (const group of posGroups) {
-            // Group example: { config_id: [1, 'Caja 1'], amount_total: 500, date_order: '2023-01-01', __count: 5 }
             const amt = group.amount_total || 0;
-            const count = group.config_id_count || 0; // Odoo count field varies
+            const count = group.config_id_count || 0; 
             
-            // Handle Dates (Odoo returns grouped dates differently depending on version)
-            // Usually group['date_order:day'] is "01 Jan 2025" or similar
             const dateKey = group['date_order:day'] || 'N/A';
             
             if (!salesByDate[dateKey]) salesByDate[dateKey] = 0;
             salesByDate[dateKey] += amt;
 
-            // Handle Branch
+            // Handle Branch Mapping
             if (group.config_id) {
+                // config_id comes as [id, "Name"] usually in read_group if grouped
                 const bId = Array.isArray(group.config_id) ? group.config_id[0] : group.config_id;
-                const bName = Array.isArray(group.config_id) ? group.config_id[1] : 'Unknown';
+                const bName = Array.isArray(group.config_id) ? group.config_id[1] : `Caja ${bId}`;
                 
                 if (!branchesMap[bId]) {
                     branchesMap[bId] = {
@@ -208,7 +232,6 @@ export const fetchOdooRealTimeData = async (
         }
     }
 
-    // Calcular márgenes (Simulado 35% por falta de campo costo directo en pos.order group)
     Object.values(branchesMap).forEach(b => {
         b.margin = b.sales * 0.35; 
         b.profitability = 35.0;
@@ -216,7 +239,6 @@ export const fetchOdooRealTimeData = async (
 
     const totalMargin = totalSales * 0.35;
 
-    // Convertir salesByDate a Array para el gráfico
     const salesData: SalesData[] = Object.entries(salesByDate).map(([date, sales]) => ({
         date,
         sales,
@@ -240,54 +262,80 @@ export const fetchOdooRealTimeData = async (
 
 /**
  * REPORTE DE CIERRE Z / ARQUEO
- * Agrupado por método de pago (Yape, Plin, Efectivo, Visa)
  */
 export const fetchCashClosingReport = async (connection: OdooConnection, allowedPosIds?: number[]): Promise<CashClosingReport[]> => {
-    if (connection.connectionMode === 'MOCK') {
-        return [
-            {
-                sessionId: 'POS/2025/001',
-                posName: 'Caja Principal',
-                cashierName: 'Juan Pérez',
-                openingDate: '2025-01-25 08:00:00',
-                closingDate: null,
-                openingBalance: 200.00,
-                totalSales: 1540.50,
-                expectedCash: 1740.50,
-                countedCash: 0,
-                difference: 0,
-                state: 'Abierto',
-                payments: [
-                    { method: 'Efectivo', amount: 540.50, count: 12 },
-                    { method: 'Yape', amount: 350.00, count: 8 },
-                    { method: 'Plin', amount: 150.00, count: 3 },
-                    { method: 'Visa / Niubiz', amount: 500.00, count: 5 }
-                ]
-            }
-        ];
-    }
-
-    // Logic for Odoo: fetch pos.session and pos.payment
-    // Simplified for now returning empty array if fail
     return [];
 };
 
 
 /**
- * REGISTRO DE VENTAS SUNAT
- * Formato detallado con IGV y Tipo de Comprobante
+ * REGISTRO DE VENTAS DETALLADAS (Facturas/Boletas)
+ * Se conecta a account.move para obtener el detalle contable
  */
-export const fetchSalesRegister = async (connection: OdooConnection): Promise<SalesRegisterItem[]> => {
+export const fetchSalesRegister = async (
+    connection: OdooConnection, 
+    period: 'HOY' | 'MES' | 'AÑO' = 'MES',
+    allowedCompanyIds?: string[]
+): Promise<SalesRegisterItem[]> => {
     if (connection.connectionMode === 'MOCK') {
+        const multiplier = period === 'AÑO' ? 10 : 1;
+        // Mock simple data array logic...
         return [
-            { id: '1', date: '2025-01-25', documentType: 'Factura', series: 'F001', number: '000459', clientName: 'DISTRIBUIDORA DEL SUR SAC', clientDocType: 'RUC', clientDocNum: '20556789123', currency: 'PEN', baseAmount: 1000.00, igvAmount: 180.00, totalAmount: 1180.00, status: 'Emitido', paymentState: 'Pagado' },
+             { id: '1', date: '2025-01-25', documentType: 'Factura', series: 'F001', number: '000459', clientName: 'DISTRIBUIDORA DEL SUR SAC', clientDocType: 'RUC', clientDocNum: '20556789123', currency: 'PEN', baseAmount: 1000.00, igvAmount: 180.00, totalAmount: 1180.00, status: 'Emitido', paymentState: 'Pagado' },
             { id: '2', date: '2025-01-25', documentType: 'Boleta', series: 'B001', number: '002301', clientName: 'JUAN PEREZ', clientDocType: 'DNI', clientDocNum: '45678912', currency: 'PEN', baseAmount: 50.00, igvAmount: 9.00, totalAmount: 59.00, status: 'Emitido', paymentState: 'Pagado' },
-            { id: '3', date: '2025-01-25', documentType: 'Boleta', series: 'B001', number: '002302', clientName: 'MARIA LOPEZ', clientDocType: 'DNI', clientDocNum: '41234567', currency: 'PEN', baseAmount: 20.00, igvAmount: 3.60, totalAmount: 23.60, status: 'Emitido', paymentState: 'Pagado' },
         ];
     }
 
-    // Fetch from account.move (Invoices)
-    return [];
+    try {
+        const client = getClient(connection);
+        const uid = await client.authenticate(connection.user, connection.apiKey);
+
+        // Build Domain (invoice_date is Date, NOT Datetime)
+        const dateDomain = getDateDomain(period, 'invoice_date', false);
+        const domain: any[] = [
+            ['move_type', 'in', ['out_invoice', 'out_refund']], // Facturas y Notas de Crédito de Cliente
+            ['state', '=', 'posted'],
+            dateDomain
+        ];
+
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+            const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+            if (compIdsInt.length > 0) {
+                domain.push(['company_id', 'in', compIdsInt]);
+            }
+        }
+
+        // Fetch Invoices
+        const invoices = await client.searchRead(
+            uid,
+            connection.apiKey,
+            'account.move',
+            domain,
+            ['name', 'invoice_date', 'partner_id', 'amount_untaxed', 'amount_tax', 'amount_total', 'move_type', 'payment_state', 'currency_id'],
+            { limit: 100, order: 'invoice_date desc' }
+        );
+
+        return invoices.map((inv: any) => ({
+            id: inv.id.toString(),
+            date: inv.invoice_date,
+            documentType: inv.move_type === 'out_refund' ? 'Nota Crédito' : inv.name.startsWith('B') ? 'Boleta' : 'Factura',
+            series: inv.name.split('-')[0] || 'F001',
+            number: inv.name.split('-')[1] || inv.name,
+            clientName: Array.isArray(inv.partner_id) ? inv.partner_id[1] : 'Cliente General',
+            clientDocType: 'RUC', 
+            clientDocNum: '---', 
+            currency: Array.isArray(inv.currency_id) ? inv.currency_id[1] : 'PEN',
+            baseAmount: inv.amount_untaxed,
+            igvAmount: inv.amount_tax,
+            totalAmount: inv.amount_total,
+            status: 'Emitido',
+            paymentState: inv.payment_state === 'paid' ? 'Pagado' : 'No Pagado'
+        }));
+
+    } catch (e) {
+        console.error("Error fetching detailed sales:", e);
+        return [];
+    }
 };
 
 export const fetchOdooInventory = async (connection: OdooConnection): Promise<InventoryItem[]> => {
