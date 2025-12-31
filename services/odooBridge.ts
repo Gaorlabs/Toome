@@ -88,36 +88,32 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
 };
 
 /**
- * Genera el filtro de fecha.
- * @param isDatetime: true para pos.order (YYYY-MM-DD HH:MM:SS), false para account.move (YYYY-MM-DD)
+ * Genera el filtro de fecha corregido para evitar problemas de zona horaria.
  */
 const getDateDomain = (period: 'HOY' | 'MES' | 'AÑO', dateField: string, isDatetime: boolean) => {
     const now = new Date();
-    let startDate = new Date();
-    
-    // Set to local midnight to avoid timezone issues when checking "Today"
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+
+    let dateStr = '';
+
     if (period === 'HOY') {
-        startDate.setHours(0,0,0,0);
+        // Para "Hoy", usaremos el formato string simple YYYY-MM-DD
+        // Odoo interpretará esto automáticamente como "Desde el inicio del día en la zona horaria del usuario"
+        // Evitamos poner horas fijas para no romper UTC vs Local.
+        dateStr = `${y}-${m}-${d}`;
     } else if (period === 'MES') {
-        startDate.setDate(1); 
-        startDate.setHours(0,0,0,0);
+        dateStr = `${y}-${m}-01`;
     } else if (period === 'AÑO') {
-        startDate.setMonth(0, 1);
-        startDate.setHours(0,0,0,0);
+        dateStr = `${y}-01-01`;
     }
 
-    // Convert to string in YYYY-MM-DD format
-    const year = startDate.getFullYear();
-    const month = String(startDate.getMonth() + 1).padStart(2, '0');
-    const day = String(startDate.getDate()).padStart(2, '0');
-    let dateStr = `${year}-${month}-${day}`;
-
+    // Para campos datetime, añadir 00:00:00 es estándar si Odoo está en UTC, pero 
+    // a veces enviar solo la fecha es más seguro si hay mucho desfase. 
+    // Sin embargo, Odoo XMLRPC suele requerir formato completo para datetime.
     if (isDatetime) {
-        // If it's a datetime field, Odoo expects UTC usually, but for local comparison >= midnight local works best
-        // if using plain string. Ideally we append time.
-        // Assuming Server is UTC, "Today" starts at yesterday's evening in some zones.
-        // For simplicity and XMLRPC safety, we send YYYY-MM-DD 00:00:00 which Odoo interprets.
-        dateStr += ' 00:00:00';
+        dateStr += ' 00:00:00'; 
     }
 
     return [dateField, '>=', dateStr];

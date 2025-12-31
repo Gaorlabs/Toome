@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ClientAccess, OdooConnection, AppModule, PosConfig } from '../types';
 import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Calendar, LogIn, Edit2, Store, AlertCircle, AlertTriangle, ArrowRight } from 'lucide-react';
 import { fetchPosConfigs } from '../services/odooBridge';
@@ -27,6 +27,9 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   const [availablePos, setAvailablePos] = useState<Record<string, PosConfig[]>>({}); 
   const [loadingPos, setLoadingPos] = useState(false);
   const [posError, setPosError] = useState<string | null>(null);
+  
+  // Ref to prevent double fetching in StrictMode or rapid re-renders
+  const dataLoadedRef = useRef(false);
 
   const generateKey = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -39,8 +42,10 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
   
   const [generatedKey, setGeneratedKey] = useState(generateKey());
 
-  const loadPos = async () => {
-      // Avoid fetching if no connections are actually connected
+  const loadPos = async (force = false) => {
+      // Don't load if already loaded unless forced
+      if (dataLoadedRef.current && !force) return;
+      
       const connectedConns = connections.filter(c => c.status === 'CONNECTED');
       if (connectedConns.length === 0) return;
 
@@ -50,18 +55,16 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
       const newConfigs: Record<string, PosConfig[]> = {};
       let hasError = false;
       
-      // Iterate connected instances
       for (const conn of connectedConns) {
-          // If we already have data for this connection and it's not empty, skipping strict re-fetch 
-          // to prevent flicker, unless explicit refresh requested (TODO: Add explicit refresh param).
-          // For now, we fetch to ensure freshness but merge carefully.
           try {
             const configs = await fetchPosConfigs(conn);
             if (configs !== null) {
-                // If successful (even if empty array), store it.
                 newConfigs[conn.id] = configs;
             } else {
-                // If null (Error), keep existing data if available to prevent disappearance
+                // Keep old data if fetch fails
+                if (availablePos[conn.id]) {
+                    newConfigs[conn.id] = availablePos[conn.id];
+                }
                 hasError = true;
             }
           } catch (e) {
@@ -70,23 +73,18 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
           }
       }
 
-      // Merge Update: Only update keys that successfully returned data. 
-      // This prevents wiping data if a specific connection fails temporarily.
-      setAvailablePos(prev => ({
-          ...prev,
-          ...newConfigs
-      }));
-
+      setAvailablePos(prev => ({ ...prev, ...newConfigs }));
       setLoadingPos(false);
-      if (hasError) setPosError("No se pudieron actualizar algunas cajas. Se muestran datos anteriores si existen.");
+      dataLoadedRef.current = true; // Mark as loaded
+      
+      if (hasError) setPosError("No se pudieron cargar algunas cajas. Verifica la conexión.");
   };
 
-  // Load on mount or when connections list changes substantially (length or status)
   useEffect(() => {
       if (connections.length > 0) {
           loadPos();
       }
-  }, [connections]);
+  }, [connections.length]); // Only re-trigger if number of connections changes
 
   const resetForm = () => {
     setNewClientName('');
@@ -115,9 +113,6 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
     const assignedConnIds = connections
         .filter(conn => conn.companies.some(comp => selectedCompanyIds.includes(comp.id)))
         .map(conn => conn.id);
-
-    // Filter out POS IDs that don't belong to selected companies anymore
-    // (Optional cleaning step, currently kept simple)
 
     if (editingClient && onUpdateClient) {
         onUpdateClient(editingClient.id, {
@@ -257,7 +252,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
                   </label>
                   <button 
                     type="button" 
-                    onClick={loadPos} 
+                    onClick={() => loadPos(true)} 
                     className="text-xs text-odoo-primary flex items-center gap-1 hover:underline"
                     disabled={loadingPos}
                   >
@@ -310,7 +305,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
                                     <div className="grid grid-cols-1 gap-4">
                                     {conn.companies.map(comp => {
                                         const isSelected = selectedCompanyIds.includes(comp.id);
-                                        // Find POS for this company
+                                        // Find POS for this company safely
                                         const companyPos = availablePos[conn.id]?.filter(p => {
                                           if (!p.company_id) return false;
                                           const pCompId = Array.isArray(p.company_id) ? p.company_id[0] : p.company_id;
@@ -358,7 +353,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
                                                             );
                                                         }) : (
                                                             <p className="text-[10px] text-orange-400 italic">
-                                                                {loadingPos ? 'Cargando...' : 'No se detectaron cajas o falta permiso.'}
+                                                                {loadingPos ? 'Buscando...' : 'No se detectaron cajas.'}
                                                             </p>
                                                         )}
                                                     </div>
