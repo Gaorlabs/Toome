@@ -44,16 +44,18 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
   };
 
   return (
-    <div className="fixed inset-0 z-50 w-full bg-[#f3f4f6] overflow-y-auto overflow-x-hidden font-sans">
+    // Changed from fixed/overflow-y-auto to min-h-screen/relative. 
+    // This allows the BODY to scroll, enabling native pull-to-refresh.
+    <div className="min-h-screen w-full bg-[#f3f4f6] font-sans relative flex flex-col z-0">
       
-      {/* Background Decor - Subtle gradients to match the clean aesthetic */}
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+      {/* Background Decor - Fixed so they don't scroll away, but stay in background */}
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
           <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-teal-100/50 blur-[100px]"></div>
           <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] rounded-full bg-purple-100/50 blur-[100px]"></div>
       </div>
 
-      {/* Main Container */}
-      <div className="min-h-full flex flex-col items-center justify-center p-4 md:p-8 relative z-10">
+      {/* Main Container - Uses flex-grow to center vertically if content is small, but flows naturally if tall */}
+      <div className="flex-grow flex flex-col items-center justify-center p-4 md:p-8 relative z-10 w-full">
         
         {/* Card Container */}
         <div className="w-full max-w-5xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] relative animate-fade-in ring-1 ring-black/5">
