@@ -71,7 +71,7 @@ export const ProductAnalysis: React.FC<ProductAnalysisProps> = ({ products }) =>
                 <span className="text-sm font-bold text-gray-500 uppercase">Baja Rotación</span>
             </div>
             <p className="text-3xl font-bold text-gray-800">{products.filter(p => p.rotation === 'Low').length}</p>
-            <p className="text-xs text-red-500 mt-1">Productos estancados > 90 días</p>
+            <p className="text-xs text-red-500 mt-1">Productos estancados &gt; 90 días</p>
         </div>
       </div>
 
