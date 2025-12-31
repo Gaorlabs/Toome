@@ -1,4 +1,3 @@
-
 import { OdooConnection, CalendarEvent, OdooCompany, SalesData, InventoryItem, BranchKPI, PosConfig, SalesRegisterItem, CashClosingReport, PaymentMethodSummary, DateRange, PaymentSummary, DailyProductSummary, DocumentTypeSummary } from '../types';
 import { OdooClient } from './OdooRpcClient';
 import { MOCK_INVENTORY } from '../constants';
@@ -732,7 +731,7 @@ export const fetchProductProfitabilityReport = async (connection: OdooConnection
         if (allowedCompanyIds) context.allowed_company_ids = allowedCompanyIds.map(Number);
 
         // 1. Fetch Sales Lines aggregated by Product
-        const domain = [
+        const domain: any[] = [
             ['order_id.date_order', '>=', startDate + ' 00:00:00'],
             ['order_id.date_order', '<=', endDate + ' 23:59:59'],
             ['order_id.state', 'in', ['paid', 'done', 'invoiced']]
@@ -851,20 +850,32 @@ export const fetchInventoryWithAlerts = async (connection: OdooConnection, allow
             console.warn("Failed to fetch POS sales for inventory forecast, skipping logic...", e);
         }
 
-        // 3. Merge and Transform
+        // 3. Merge and Transform with DAYS OF INVENTORY LOGIC
         return products.map((p: any) => {
             const stock = p.qty_available || 0;
             const sold30 = salesMap[p.id] || 0;
-            const avgDailySales = sold30 / 30;
+            const avgDailySales = sold30 / 30; // Promedio diario
             
             let daysRemaining = 999;
             if (avgDailySales > 0) {
                 daysRemaining = stock / avgDailySales;
             }
 
+            // --- LÓGICA AUTOMATIZADA POR ROTACIÓN ---
+            // Si rota mucho (vende mucho), el día de inventario es más crítico.
+            // Critical: Stock cubre menos de 5 días.
+            // Warning: Stock cubre menos de 15 días.
+            
             let status: 'Critical' | 'Warning' | 'Healthy' = 'Healthy';
-            if (stock <= 10) status = 'Critical';
-            else if (stock <= 20) status = 'Warning';
+            
+            if (daysRemaining <= 5 && avgDailySales > 0) {
+                status = 'Critical';
+            } else if (daysRemaining <= 15 && avgDailySales > 0) {
+                status = 'Warning';
+            }
+
+            // Edge Case: Si stock es 0 y se ha vendido en el pasado reciente
+            if (stock <= 0 && avgDailySales > 0) status = 'Critical';
 
             return {
                 id: p.id.toString(),
@@ -878,6 +889,12 @@ export const fetchInventoryWithAlerts = async (connection: OdooConnection, allow
                 cost: p.standard_price || 0,
                 totalValue: stock * (p.standard_price || 0)
             };
+        }).sort((a, b) => {
+            // Ordenar por prioridad: Critical -> Warning -> Healthy
+            const scoreA = a.status === 'Critical' ? 3 : a.status === 'Warning' ? 2 : 1;
+            const scoreB = b.status === 'Critical' ? 3 : b.status === 'Warning' ? 2 : 1;
+            if (scoreA !== scoreB) return scoreB - scoreA;
+            return a.daysRemaining - b.daysRemaining; // Luego por menos días restantes
         });
 
     } catch (e) {
