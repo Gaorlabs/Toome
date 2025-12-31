@@ -187,8 +187,11 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
         </div>
       </div>
       
-      <div className="absolute bottom-6 text-center w-full text-xs text-gray-400 font-medium">
-        &copy; 2025 Toome Analytics. Secure Connection via Odoo XML-RPC.
+      <div className="absolute bottom-6 text-center w-full text-xs text-gray-400 font-medium flex flex-col items-center gap-1">
+        <span>&copy; 2025 Toome Analytics. Secure Connection via Odoo XML-RPC.</span>
+        <span>
+          Desarrollado por <a href="https://gaorsystem.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-odoo-primary hover:underline font-bold transition-colors">GaorSystem Perú</a>
+        </span>
       </div>
     </div>
   );

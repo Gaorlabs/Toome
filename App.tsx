@@ -333,7 +333,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         
         {/* Top Header */}
-        <header className="h-16 flex items-center justify-between px-6 z-20 bg-white border-b border-gray-200 shadow-sm">
+        <header className="h-16 flex items-center justify-between px-6 z-20 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
           
           {/* Left: Search & Connection Context */}
           <div className="flex items-center space-x-6">
@@ -409,64 +409,71 @@ export default function App() {
         </header>
 
         {/* Dynamic Content View */}
-        <main className="flex-1 overflow-y-auto p-6 bg-[#F9FAFB]">
-           <div className="max-w-[1600px] mx-auto">
-               {currentView === ViewMode.DASHBOARD && (
-                   <Dashboard 
-                       kpis={MOCK_KPIS} 
-                       salesData={MOCK_SALES_DATA} 
-                       topProducts={MOCK_TOP_PRODUCTS}
-                       inventory={MOCK_INVENTORY}
-                       branchKPIs={MOCK_BRANCHES}
-                       activeConnection={selectedConnection} 
-                       userSession={session} // Pass session to allow POS filtering
-                   />
-               )}
-               {currentView === ViewMode.INVENTORY && (
-                   <InventoryView connection={selectedConnection} userSession={session} />
-               )}
-               {currentView === ViewMode.PRODUCTS && (
-                   <ProductAnalysis products={MOCK_TOP_PRODUCTS} />
-               )}
-               {currentView === ViewMode.AGENDA && (
-                   <AgendaModule connection={selectedConnection} />
-               )}
-               {currentView === ViewMode.CUSTOMERS && (
-                   <SalesView connection={selectedConnection} userSession={session} />
-               )}
-               {currentView === ViewMode.REPORTS && (
-                   <ReportsView connection={selectedConnection} userSession={session} />
-               )}
-               {currentView === ViewMode.BRANCHES && (
-                   <Dashboard 
-                       kpis={MOCK_KPIS} 
-                       salesData={MOCK_SALES_DATA} 
-                       topProducts={MOCK_TOP_PRODUCTS}
-                       inventory={MOCK_INVENTORY}
-                       branchKPIs={MOCK_BRANCHES}
-                       activeConnection={selectedConnection} 
-                       userSession={session}
-                   />
-               )}
+        <main className="flex-1 overflow-y-auto bg-[#F9FAFB] flex flex-col">
+           <div className="flex-1 p-6">
+               <div className="max-w-[1600px] mx-auto">
+                   {currentView === ViewMode.DASHBOARD && (
+                       <Dashboard 
+                           kpis={MOCK_KPIS} 
+                           salesData={MOCK_SALES_DATA} 
+                           topProducts={MOCK_TOP_PRODUCTS}
+                           inventory={MOCK_INVENTORY}
+                           branchKPIs={MOCK_BRANCHES}
+                           activeConnection={selectedConnection} 
+                           userSession={session} // Pass session to allow POS filtering
+                       />
+                   )}
+                   {currentView === ViewMode.INVENTORY && (
+                       <InventoryView connection={selectedConnection} userSession={session} />
+                   )}
+                   {currentView === ViewMode.PRODUCTS && (
+                       <ProductAnalysis products={MOCK_TOP_PRODUCTS} />
+                   )}
+                   {currentView === ViewMode.AGENDA && (
+                       <AgendaModule connection={selectedConnection} />
+                   )}
+                   {currentView === ViewMode.CUSTOMERS && (
+                       <SalesView connection={selectedConnection} userSession={session} />
+                   )}
+                   {currentView === ViewMode.REPORTS && (
+                       <ReportsView connection={selectedConnection} userSession={session} />
+                   )}
+                   {currentView === ViewMode.BRANCHES && (
+                       <Dashboard 
+                           kpis={MOCK_KPIS} 
+                           salesData={MOCK_SALES_DATA} 
+                           topProducts={MOCK_TOP_PRODUCTS}
+                           inventory={MOCK_INVENTORY}
+                           branchKPIs={MOCK_BRANCHES}
+                           activeConnection={selectedConnection} 
+                           userSession={session}
+                       />
+                   )}
 
-               {currentView === ViewMode.CLIENT_MANAGEMENT && session.role === 'ADMIN' && (
-                  <ClientManagement 
-                    clients={clients} 
-                    connections={connections} 
-                    onCreateClient={handleCreateClient}
-                    onUpdateClient={handleUpdateClient} // Pass update handler
-                    onDeleteClient={handleDeleteClient}
-                    onSimulateLogin={handleClientLogin}
-                  />
-               )}
-               {currentView === ViewMode.CONNECTION_MANAGEMENT && session.role === 'ADMIN' && (
-                  <ConnectionManager
-                    connections={connections}
-                    onAddConnection={handleAddConnection}
-                    onRemoveConnection={handleRemoveConnection}
-                    onUpdateStatus={handleUpdateConnectionStatus}
-                  />
-               )}
+                   {currentView === ViewMode.CLIENT_MANAGEMENT && session.role === 'ADMIN' && (
+                      <ClientManagement 
+                        clients={clients} 
+                        connections={connections} 
+                        onCreateClient={handleCreateClient}
+                        onUpdateClient={handleUpdateClient} // Pass update handler
+                        onDeleteClient={handleDeleteClient}
+                        onSimulateLogin={handleClientLogin}
+                      />
+                   )}
+                   {currentView === ViewMode.CONNECTION_MANAGEMENT && session.role === 'ADMIN' && (
+                      <ConnectionManager
+                        connections={connections}
+                        onAddConnection={handleAddConnection}
+                        onRemoveConnection={handleRemoveConnection}
+                        onUpdateStatus={handleUpdateConnectionStatus}
+                      />
+                   )}
+               </div>
+           </div>
+           
+           {/* Platform Footer */}
+           <div className="py-4 text-center text-xs text-gray-400 bg-white/50 border-t border-gray-200">
+                Desarrollado por <a href="https://gaorsystem.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-odoo-primary font-bold hover:underline transition-colors">GaorSystem Perú</a>
            </div>
         </main>
       </div>
