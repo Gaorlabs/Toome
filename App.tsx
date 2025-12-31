@@ -423,7 +423,7 @@ export default function App() {
                    />
                )}
                {currentView === ViewMode.INVENTORY && (
-                   <InventoryView items={MOCK_INVENTORY} />
+                   <InventoryView connection={selectedConnection} userSession={session} />
                )}
                {currentView === ViewMode.PRODUCTS && (
                    <ProductAnalysis products={MOCK_TOP_PRODUCTS} />
@@ -435,7 +435,7 @@ export default function App() {
                    <SalesView connection={selectedConnection} userSession={session} />
                )}
                {currentView === ViewMode.REPORTS && (
-                   <ReportsView />
+                   <ReportsView connection={selectedConnection} userSession={session} />
                )}
                {currentView === ViewMode.BRANCHES && (
                    <Dashboard 

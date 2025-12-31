@@ -1,17 +1,63 @@
-import React, { useState } from 'react';
-import { InventoryItem } from '../types';
-import { AlertTriangle, AlertCircle, CheckCircle, Search, Filter, Download } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { InventoryItem, OdooConnection, UserSession } from '../types';
+import { AlertTriangle, AlertCircle, CheckCircle, Search, Filter, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { fetchInventoryWithAlerts } from '../services/odooBridge';
+import * as XLSX from 'xlsx';
 
 interface InventoryViewProps {
-  items: InventoryItem[];
+  connection?: OdooConnection | null;
+  userSession?: UserSession | null;
 }
 
-export const InventoryView: React.FC<InventoryViewProps> = ({ items }) => {
+export const InventoryView: React.FC<InventoryViewProps> = ({ connection, userSession }) => {
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'All' | 'Critical' | 'Warning'>('All');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+      if(connection) {
+          loadData();
+      } else {
+          setItems([]);
+      }
+  }, [connection]);
+
+  const loadData = async () => {
+      setLoading(true);
+      const data = await fetchInventoryWithAlerts(connection!, userSession?.clientData?.allowedCompanyIds);
+      setItems(data);
+      setLoading(false);
+  }
+
+  const exportToExcel = () => {
+      if (items.length === 0) return;
+      
+      const dataToExport = items.map(item => ({
+          'Producto': item.name,
+          'SKU': item.sku,
+          'Categoría': item.category,
+          'Stock Actual': item.stock,
+          'Venta Diaria (Avg)': item.avgDailySales,
+          'Días Restantes': item.daysRemaining > 900 ? '999+' : item.daysRemaining,
+          'Estado': item.status === 'Critical' ? 'Crítico' : item.status === 'Warning' ? 'Preventiva' : 'Saludable',
+          'Costo Unit.': item.cost,
+          'Valor Total': item.totalValue
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Alertas Inventario");
+      XLSX.writeFile(wb, "Reporte_Alertas_Inventario.xlsx");
+  };
 
   const filteredItems = items.filter(item => {
-      if (filter === 'All') return true;
-      return item.status === filter;
+      const matchesFilter = filter === 'All' || item.status === filter;
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            item.category.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesFilter && matchesSearch;
   });
 
   const getStatusBadge = (status: string) => {
@@ -40,14 +86,26 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ items }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Alertas de Inventario</h2>
           <p className="text-gray-500 text-sm">Monitoreo en tiempo real de niveles de stock y rotación</p>
         </div>
         <div className="flex gap-2">
-            <button className="flex items-center space-x-2 bg-odoo-primary hover:bg-opacity-90 text-white px-4 py-2 rounded-md shadow-sm transition-all text-sm font-medium">
+            <button 
+                onClick={loadData}
+                disabled={loading || !connection}
+                className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm transition-all text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                <span>{loading ? 'Sincronizando...' : 'Actualizar'}</span>
+            </button>
+            <button 
+                onClick={exportToExcel}
+                disabled={items.length === 0}
+                className="flex items-center space-x-2 bg-odoo-primary hover:bg-opacity-90 text-white px-4 py-2 rounded-md shadow-sm transition-all text-sm font-medium disabled:opacity-50"
+            >
                 <Download size={16} />
                 <span>Exportar Alertas</span>
             </button>
@@ -96,6 +154,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ items }) => {
               </div>
               <input 
                   type="text" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-odoo-primary focus:border-odoo-primary block w-full pl-10 p-2.5" 
                   placeholder="Buscar por SKU, nombre o categoría..." 
               />
@@ -141,21 +201,30 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ items }) => {
                   <td className="px-6 py-4 text-center font-bold">{item.stock}</td>
                   <td className="px-6 py-4 text-center">{item.avgDailySales}</td>
                   <td className={`px-6 py-4 text-center font-bold ${item.daysRemaining < 3 ? 'text-red-600' : 'text-gray-600'}`}>
-                      {item.daysRemaining.toFixed(1)} días
+                      {item.daysRemaining > 900 ? '> 900' : item.daysRemaining.toFixed(1)} días
                   </td>
                   <td className="px-6 py-4 flex justify-center">
                     {getStatusBadge(item.status)}
                   </td>
                 </tr>
               ))}
+              {filteredItems.length === 0 && !loading && (
+                  <tr>
+                      <td colSpan={7} className="p-8 text-center text-gray-500">
+                          {connection ? "No se encontraron productos con el filtro seleccionado." : "Conecta una base de datos para ver el inventario."}
+                      </td>
+                  </tr>
+              )}
+              {loading && (
+                  <tr>
+                      <td colSpan={7} className="p-8 text-center text-odoo-primary flex justify-center gap-2 items-center">
+                          <Loader2 className="animate-spin" /> Cargando inventario y analizando ventas...
+                      </td>
+                  </tr>
+              )}
             </tbody>
           </table>
         </div>
-        {filteredItems.length === 0 && (
-            <div className="p-8 text-center text-gray-500">
-                No se encontraron productos con el filtro seleccionado.
-            </div>
-        )}
       </div>
     </div>
   );
