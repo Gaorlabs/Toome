@@ -4,7 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Legend, AreaChart, Area, ComposedChart 
 } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, TrendingUp, AlertTriangle, AlertCircle, Package, Activity, RefreshCw, Database, DollarSign, Calendar } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, MoreHorizontal, Download, TrendingUp, AlertTriangle, AlertCircle, Package, Activity, RefreshCw, Database, DollarSign, Calendar, Inbox } from 'lucide-react';
 import { KPI, InventoryItem, OdooConnection, DashboardProps } from '../types';
 import { fetchOdooRealTimeData, fetchOdooInventory } from '../services/odooBridge';
 
@@ -58,6 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
   };
 
   const criticalStock = displayInventory.filter(item => item.status === 'Critical').slice(0, 5);
+  const hasData = initialSales.length > 0 || topProducts.length > 0;
 
   return (
     <div className="space-y-6 pb-8 animate-fade-in">
@@ -103,78 +104,104 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{kpi.label}</p>
                     <h3 className="text-2xl font-bold text-odoo-dark mt-1">{kpi.value}</h3>
                 </div>
-                <div className={`p-1.5 rounded-full ${kpi.trend === 'up' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {kpi.trend === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                <div className={`p-1.5 rounded-full ${kpi.trend === 'up' ? 'bg-green-100 text-green-700' : kpi.trend === 'down' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {kpi.trend === 'up' ? <ArrowUpRight size={16} /> : kpi.trend === 'down' ? <ArrowDownRight size={16} /> : <TrendingUp size={16} />}
                 </div>
             </div>
-            <div className="mt-3 flex items-center text-xs">
-                <span className={`font-bold ${kpi.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {kpi.change > 0 ? '+' : ''}{kpi.change}%
-                </span>
-                <span className="text-gray-400 ml-1">vs periodo anterior</span>
-            </div>
+            {kpi.change !== 0 && (
+                <div className="mt-3 flex items-center text-xs">
+                    <span className={`font-bold ${kpi.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {kpi.change > 0 ? '+' : ''}{kpi.change}%
+                    </span>
+                    <span className="text-gray-400 ml-1">vs periodo anterior</span>
+                </div>
+            )}
           </div>
         ))}
       </div>
+
+      {!hasData && !activeConnection && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+              <Inbox className="mx-auto text-blue-300 mb-3" size={48} />
+              <h3 className="text-lg font-bold text-blue-800">Esperando Conexión</h3>
+              <p className="text-blue-600 text-sm">Conecta tu base de datos Odoo para ver la información de tu farmacia aquí.</p>
+          </div>
+      )}
 
       {/* Main Analysis Area - Split View */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Sales Chart */}
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg shadow-sm p-5">
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg shadow-sm p-5 min-h-[350px]">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-gray-800">Tendencia de Ventas y Margen</h3>
                 <MoreHorizontal size={18} className="text-gray-400 cursor-pointer" />
             </div>
             <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={initialSales} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
-                        <Tooltip 
-                            contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                        />
-                        <Legend iconType="circle" />
-                        <Area type="monotone" dataKey="sales" name="Ventas" fill="#017E84" fillOpacity={0.1} stroke="#017E84" strokeWidth={2} />
-                        <Line type="monotone" dataKey="margin" name="Margen" stroke="#714B67" strokeWidth={2} dot={{r: 4, strokeWidth: 2}} />
-                    </ComposedChart>
-                </ResponsiveContainer>
+                {initialSales.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={initialSales} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                            />
+                            <Legend iconType="circle" />
+                            <Area type="monotone" dataKey="sales" name="Ventas" fill="#017E84" fillOpacity={0.1} stroke="#017E84" strokeWidth={2} />
+                            <Line type="monotone" dataKey="margin" name="Margen" stroke="#714B67" strokeWidth={2} dot={{r: 4, strokeWidth: 2}} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                        <TrendingUp size={48} className="mb-2 opacity-20" />
+                        <p className="text-sm">Sin datos de ventas para mostrar</p>
+                    </div>
+                )}
             </div>
         </div>
 
         {/* Top Products List (Spreadsheet Style) */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col min-h-[350px]">
              <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                 <h3 className="font-bold text-gray-800 text-sm">Top Productos (Rentabilidad)</h3>
             </div>
             <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-500 uppercase bg-white border-b border-gray-100">
-                        <tr>
-                            <th className="px-4 py-3 font-medium">Producto</th>
-                            <th className="px-4 py-3 font-medium text-right">Margen</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {topProducts.map((p, i) => (
-                            <tr key={i} className="hover:bg-gray-50">
-                                <td className="px-4 py-2.5">
-                                    <div className="font-medium text-gray-800 truncate max-w-[150px]">{p.name}</div>
-                                    <div className="text-xs text-gray-400">{p.category}</div>
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                    <div className="font-bold text-odoo-primary">S/. {p.margin.toLocaleString()}</div>
-                                    <div className="text-xs text-green-600">{p.profitability}%</div>
-                                </td>
+                {topProducts.length > 0 ? (
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-gray-500 uppercase bg-white border-b border-gray-100">
+                            <tr>
+                                <th className="px-4 py-3 font-medium">Producto</th>
+                                <th className="px-4 py-3 font-medium text-right">Margen</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {topProducts.map((p, i) => (
+                                <tr key={i} className="hover:bg-gray-50">
+                                    <td className="px-4 py-2.5">
+                                        <div className="font-medium text-gray-800 truncate max-w-[150px]">{p.name}</div>
+                                        <div className="text-xs text-gray-400">{p.category}</div>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right">
+                                        <div className="font-bold text-odoo-primary">S/. {p.margin.toLocaleString()}</div>
+                                        <div className="text-xs text-green-600">{p.profitability}%</div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8">
+                        <Package size={32} className="mb-2 opacity-20" />
+                        <p className="text-xs">No hay productos destacados</p>
+                    </div>
+                )}
             </div>
-            <div className="p-3 border-t border-gray-100 text-center">
-                <button className="text-xs text-odoo-primary font-bold hover:underline">Ver Análisis Completo</button>
-            </div>
+            {topProducts.length > 0 && (
+                <div className="p-3 border-t border-gray-100 text-center">
+                    <button className="text-xs text-odoo-primary font-bold hover:underline">Ver Análisis Completo</button>
+                </div>
+            )}
         </div>
       </div>
 
@@ -198,7 +225,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                           </div>
                       </div>
                   )) : (
-                      <div className="text-center py-8 text-gray-400 text-sm">Inventario Saludable</div>
+                      <div className="text-center py-8 text-gray-400 text-sm border border-dashed rounded-lg">
+                          {activeConnection ? "Inventario Saludable (Sin alertas)" : "Sin datos de inventario"}
+                      </div>
                   )}
               </div>
           </div>
@@ -206,15 +235,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
               <h3 className="font-bold text-gray-800 mb-4">Distribución por Categoría</h3>
               <div className="h-60">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topProducts} layout="vertical" margin={{top: 5, right: 30, left: 40, bottom: 5}}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="category" type="category" width={80} tick={{fontSize: 11}} />
-                      <Tooltip cursor={{fill: 'transparent'}} />
-                      <Bar dataKey="sales" fill="#714B67" radius={[0, 4, 4, 0]} barSize={20} />
-                    </BarChart>
-                 </ResponsiveContainer>
+                 {topProducts.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topProducts} layout="vertical" margin={{top: 5, right: 30, left: 40, bottom: 5}}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="category" type="category" width={80} tick={{fontSize: 11}} />
+                        <Tooltip cursor={{fill: 'transparent'}} />
+                        <Bar dataKey="sales" fill="#714B67" radius={[0, 4, 4, 0]} barSize={20} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                 ) : (
+                     <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                         Sin datos para graficar
+                     </div>
+                 )}
               </div>
           </div>
       </div>

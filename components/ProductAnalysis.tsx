@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ProductPerformance } from '../types';
-import { TrendingUp, DollarSign, Package, ArrowUp, ArrowDown, Filter, Download } from 'lucide-react';
+import { TrendingUp, DollarSign, Package, ArrowUp, ArrowDown, Filter, Download, Inbox } from 'lucide-react';
 
 interface ProductAnalysisProps {
   products: ProductPerformance[];
@@ -28,6 +28,20 @@ export const ProductAnalysis: React.FC<ProductAnalysisProps> = ({ products }) =>
     }
     return 0;
   });
+
+  if (products.length === 0) {
+      return (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
+              <div className="bg-gray-100 p-4 rounded-full mb-4">
+                  <Inbox size={48} className="text-gray-400" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-700">Sin Datos de Productos</h2>
+              <p className="text-gray-500 mt-2 max-w-md">
+                  No hay información de productos para analizar. Conecta una base de datos Odoo con movimientos de ventas para ver el análisis ABC y rentabilidad.
+              </p>
+          </div>
+      );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in pb-8">

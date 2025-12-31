@@ -17,13 +17,13 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
   const [testing, setTesting] = useState<string | null>(null); // ID of connection being tested
   const [lastError, setLastError] = useState<string | null>(null);
   
-  // PRE-FILLED WITH USER DATA FOR QUICK SETUP
+  // FORMULARIO LIMPIO (Sin datos pre-llenados)
   const [form, setForm] = useState({
-    name: 'Botica Principal',
-    url: 'https://boticap.facturaclic.pe/',
-    db: 'boticap_master',
-    user: 'soporte@facturaclic.pe',
-    apiKey: '774c02dca8070ab0e0c1a5dae5792237b495e71c'
+    name: '',
+    url: '',
+    db: '',
+    user: '',
+    apiKey: ''
   });
 
   const isMixedContent = (url: string) => {
@@ -52,8 +52,6 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
       ] : []
     };
     onAddConnection(newConn);
-    // Keep form data for convenience in case of retry, or clear? Let's clear to avoid dupes visually but user provided specific data so maybe keep it if they want to edit. 
-    // Resetting for clean UX.
     setForm({ name: '', url: '', db: '', user: '', apiKey: '' });
     setShowForm(false);
   };
@@ -76,11 +74,9 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
     const { success, mode, companies, error } = await testOdooConnection(connection);
     
     if (!success) {
-        // Show the specific error from the bridge
         setLastError(error || "Falló la conexión. Verifica URL, DB y Credenciales.");
     }
 
-    // Pasamos las compañías detectadas hacia arriba (App.tsx)
     onUpdateStatus(connection.id, success ? 'CONNECTED' : 'ERROR', mode, companies);
     setTesting(null);
   };
@@ -90,15 +86,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Conexiones Odoo</h2>
-          <p className="text-gray-500 text-sm">Gestiona tus instancias ERP. Usa modo demo si no tienes un servidor activo.</p>
+          <p className="text-gray-500 text-sm">Gestiona tus instancias ERP.</p>
         </div>
         <div className="flex gap-2">
+            {/* Botón Demo Oculto/Secundario si se desea limpiar la UI */}
             <button 
                 onClick={createDemoConnection}
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors"
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors text-xs"
             >
-                <PlayCircle size={18} className="text-odoo-primary" />
-                <span>Usar Demo</span>
+                <PlayCircle size={14} className="text-gray-400" />
+                <span>Modo Demo</span>
             </button>
             <button 
             onClick={() => setShowForm(!showForm)}
@@ -125,7 +122,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                   value={form.name}
                   onChange={(e) => setForm({...form, name: e.target.value})}
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary"
-                  placeholder="Ej: ERP Producción"
+                  placeholder="Ej: Farmacia Principal"
                   required
                 />
               </div>
@@ -138,7 +135,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                     value={form.url}
                     onChange={(e) => setForm({...form, url: e.target.value})}
                     className={`w-full border rounded-lg pl-9 p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary ${isMixedContent(form.url) || isLocalhost(form.url) ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
-                    placeholder="https://mi-empresa.odoo.com"
+                    placeholder="https://mi-farmacia.odoo.com"
                     required
                     />
                 </div>
@@ -162,7 +159,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                     value={form.db}
                     onChange={(e) => setForm({...form, db: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg pl-9 p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary"
-                    placeholder="production_db"
+                    placeholder="nombre_db"
                     required
                     />
                 </div>
@@ -176,7 +173,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                     value={form.user}
                     onChange={(e) => setForm({...form, user: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg pl-9 p-2.5 focus:ring-odoo-secondary focus:border-odoo-secondary"
-                    placeholder="admin@empresa.com"
+                    placeholder="admin@farmacia.com"
                     required
                     />
                 </div>
@@ -299,7 +296,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
             <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
                 <Database size={48} className="mx-auto text-gray-300 mb-4" />
                 <h3 className="text-lg font-medium text-gray-500">No hay conexiones configuradas</h3>
-                <p className="text-sm text-gray-400 mt-2">Agrega tu primera instancia Odoo para comenzar a extraer datos.</p>
+                <p className="text-sm text-gray-400 mt-2">Agrega tu primera instancia Odoo para comenzar.</p>
                 <button 
                     onClick={() => setShowForm(true)}
                     className="mt-6 text-odoo-secondary font-bold hover:underline"

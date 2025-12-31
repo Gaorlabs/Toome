@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { CustomerSegment } from '../types';
-import { Users, UserCheck, UserX, Crown, Search, Filter } from 'lucide-react';
+import { Users, UserCheck, UserX, Crown, Search, Filter, Inbox } from 'lucide-react';
 
 interface CustomerViewProps {
   customers: CustomerSegment[];
@@ -18,6 +18,20 @@ export const CustomerView: React.FC<CustomerViewProps> = ({ customers }) => {
           default: return 'bg-gray-100 text-gray-600';
       }
   };
+
+  if (customers.length === 0) {
+      return (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
+              <div className="bg-gray-100 p-4 rounded-full mb-4">
+                  <Users size={48} className="text-gray-400" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-700">Sin Clientes</h2>
+              <p className="text-gray-500 mt-2 max-w-md">
+                  No se encontraron clientes o datos de ventas para segmentar.
+              </p>
+          </div>
+      );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
