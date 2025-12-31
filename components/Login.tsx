@@ -44,157 +44,161 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
   };
 
   return (
-    // FIX: 'fixed inset-0' creates a dedicated layer that sits on top of everything
-    // 'overflow-y-auto' enables native scrolling within this layer, fixing the mobile keyboard issue.
-    <div className="fixed inset-0 z-50 w-full bg-[#F9FAFB] overflow-y-auto overflow-x-hidden">
+    <div className="fixed inset-0 z-50 w-full bg-[#f3f4f6] overflow-y-auto overflow-x-hidden font-sans">
       
-      {/* Background Decor (Fixed so they don't scroll with content) */}
-      <div className="fixed top-[-20%] left-[-10%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] rounded-full bg-odoo-primary/20 blur-[80px] md:blur-[100px] animate-pulse-slow pointer-events-none"></div>
-      <div className="fixed bottom-[-20%] right-[-10%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] rounded-full bg-odoo-secondary/20 blur-[100px] md:blur-[120px] animate-pulse-slow delay-300 pointer-events-none"></div>
+      {/* Background Decor - Subtle gradients to match the clean aesthetic */}
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-teal-100/50 blur-[100px]"></div>
+          <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] rounded-full bg-purple-100/50 blur-[100px]"></div>
+      </div>
 
-      {/* Main Container: min-h-full allows centering when content is small, but expansion when content is tall */}
-      <div className="min-h-full flex flex-col items-center justify-center p-4 py-8 md:py-12 relative z-10">
+      {/* Main Container */}
+      <div className="min-h-full flex flex-col items-center justify-center p-4 md:p-8 relative z-10">
         
-        {/* Card: Flex-col on mobile (stack), Flex-row on desktop (side-by-side) */}
-        <div className="glass rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row relative z-10 animate-slide-up ring-1 ring-white/50 mb-8 bg-white">
+        {/* Card Container */}
+        <div className="w-full max-w-5xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] relative animate-fade-in ring-1 ring-black/5">
           
-          {/* Brand Section */}
-          <div 
-            className="md:w-1/2 bg-gradient-to-br from-odoo-primary to-[#5a3a52] p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden select-none"
-          >
-              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+          {/* Left Section (Brand Visual) */}
+          <div className="md:w-1/2 bg-[#0E5E6F] relative overflow-hidden flex flex-col justify-between p-8 md:p-12 text-white">
+              {/* Gradient Overlay matching the reference image */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#017E84] to-[#2E1065] opacity-90"></div>
+              {/* Texture/Noise overlay for premium feel */}
+              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
               
-              <div className="relative z-10 text-center md:text-left">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm mb-4 md:mb-6 shadow-inner border border-white/10">
-                      <BarChart2 className="text-white" size={24} />
+              {/* Logo & Headline */}
+              <div className="relative z-10">
+                  <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/10 shadow-lg">
+                      <BarChart2 className="text-white" size={28} />
                   </div>
-                  <h1 className="text-3xl md:text-5xl font-bold mb-2 md:mb-4 tracking-tight font-ubuntu">Toome</h1>
-                  <p className="text-odoo-light/90 text-sm md:text-lg font-light leading-relaxed">
+                  <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight font-ubuntu">Toome</h1>
+                  <p className="text-lg text-white/80 font-light leading-relaxed max-w-md">
                       Inteligencia de negocios unificada para tu ecosistema Odoo.
                   </p>
               </div>
 
-              {/* Features hidden on very small screens to save space */}
-              <div className="relative z-10 mt-8 md:mt-12 space-y-4 md:space-y-6 hidden sm:block">
-                  <div className="flex items-center space-x-4 p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shadow-sm">
-                          <Database size={20} />
+              {/* Feature Cards (Glassmorphism) */}
+              <div className="relative z-10 space-y-4 mt-12 md:mt-0">
+                  <div className="group bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-all cursor-default">
+                      <div className="p-2.5 bg-white/10 rounded-xl group-hover:scale-110 transition-transform">
+                          <Database size={20} className="text-white" />
                       </div>
                       <div>
-                          <p className="font-bold text-sm tracking-wide">Multi-Compañía</p>
-                          <p className="text-xs opacity-75 font-light">Gestión de datos centralizada</p>
+                          <h3 className="font-bold text-sm">Multi-Compañía</h3>
+                          <p className="text-xs text-white/60">Gestión de datos centralizada</p>
+                      </div>
+                  </div>
+                  <div className="group bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-all cursor-default">
+                       <div className="p-2.5 bg-white/10 rounded-xl group-hover:scale-110 transition-transform">
+                          <ShieldCheck size={20} className="text-white" />
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-sm">Seguridad Avanzada</h3>
+                          <p className="text-xs text-white/60">Control de acceso por roles</p>
                       </div>
                   </div>
               </div>
           </div>
 
-          {/* Form Section */}
-          <div className="md:w-1/2 p-6 md:p-12 bg-white relative flex flex-col justify-center min-h-[400px] md:min-h-auto">
+          {/* Right Section (Login Form) */}
+          <div className="md:w-1/2 bg-white p-8 md:p-16 flex flex-col justify-center relative">
             
-            {/* STEP 1: CLIENT LOGIN */}
             {step === 'CLIENT' && (
-              <div className="animate-fade-in w-full max-w-sm mx-auto flex flex-col h-full justify-center">
-                <div className="mb-6 md:mb-8 text-center md:text-left">
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 tracking-tight">Bienvenido</h2>
-                    <p className="text-gray-500 font-light text-sm md:text-base">Accede a tu panel de control personalizado.</p>
-                </div>
-                
-                <form onSubmit={handleClientSubmit} className="space-y-5 md:space-y-6">
-                  <div className="group text-left">
-                    <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">Clave de Acceso</label>
-                    <div className="relative transform transition-all duration-300 group-focus-within:scale-[1.02]">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Key size={20} className="text-gray-400 group-focus-within:text-odoo-primary transition-colors" />
-                      </div>
-                      <input 
-                        type="password"
-                        value={clientKey}
-                        onChange={(e) => setClientKey(e.target.value)}
-                        className="block w-full pl-12 pr-4 py-3 md:py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-odoo-primary/50 focus:border-odoo-primary focus:bg-white outline-none transition-all shadow-sm text-base md:text-lg"
-                        placeholder="Ej: CL-8829-XP"
-                        required
-                        autoComplete="off" // Helps on mobile
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    type="submit"
-                    className="w-full flex items-center justify-center space-x-2 bg-odoo-primary hover:bg-odoo-primaryDark text-white py-3 md:py-4 rounded-xl font-bold text-sm md:text-base tracking-wide shadow-lg shadow-odoo-primary/30 hover:shadow-odoo-primary/50 transition-all transform hover:-translate-y-1 active:scale-95"
-                  >
-                    <span>Ingresar al Dashboard</span>
-                    <ArrowRight size={18} />
-                  </button>
-                </form>
+              <div className="max-w-sm mx-auto w-full animate-slide-up">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2 font-ubuntu">Bienvenido</h2>
+                  <p className="text-gray-500 mb-10 text-sm">Accede a tu panel de control personalizado.</p>
 
-                <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-                  <button 
-                    onClick={() => setStep('ADMIN_AUTH')}
-                    className="text-gray-400 hover:text-odoo-secondary text-sm font-medium flex items-center justify-center gap-2 transition-colors mx-auto p-2"
-                  >
-                    <UserCog size={16} />
-                    <span>Soy Administrador</span>
-                  </button>
-                </div>
+                  <form onSubmit={handleClientSubmit} className="space-y-6">
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Clave de Acceso</label>
+                          <div className="relative group">
+                              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                  <Key className="text-gray-400 group-focus-within:text-odoo-primary transition-colors" size={20} />
+                              </div>
+                              <input 
+                                type="password"
+                                value={clientKey}
+                                onChange={(e) => setClientKey(e.target.value)}
+                                className="w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-odoo-primary/20 focus:border-odoo-primary transition-all font-medium text-lg"
+                                placeholder="Ej: CL-8829-XP"
+                                required
+                              />
+                          </div>
+                      </div>
+
+                      <button 
+                        type="submit"
+                        className="w-full bg-[#017E84] hover:bg-[#006064] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-teal-900/10 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                      >
+                          <span>Ingresar al Dashboard</span>
+                          <ArrowRight size={20} />
+                      </button>
+                  </form>
+
+                  <div className="mt-12 text-center border-t border-gray-100 pt-8">
+                      <button 
+                        onClick={() => setStep('ADMIN_AUTH')}
+                        className="text-gray-400 hover:text-gray-600 text-sm font-medium flex items-center justify-center gap-2 mx-auto transition-colors group"
+                      >
+                          <UserCog size={16} className="group-hover:scale-110 transition-transform"/>
+                          <span>Soy Administrador</span>
+                      </button>
+                  </div>
               </div>
             )}
 
-            {/* STEP 2: ADMIN LOGIN */}
             {step === 'ADMIN_AUTH' && (
-              <div className="animate-fade-in w-full max-w-sm mx-auto relative">
-                <button 
-                  onClick={resetToClient} 
-                  className="absolute -top-12 right-0 md:top-0 md:right-0 text-gray-400 hover:text-odoo-dark flex items-center text-sm transition-colors font-medium p-2"
-                >
-                  <ArrowLeft size={16} className="mr-1" /> Volver
-                </button>
-                
-                <div className="mb-6 md:mb-8 flex justify-center animate-slide-up">
-                  <div className="w-16 h-16 md:w-20 md:h-20 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shadow-inner border border-red-100">
-                    <Lock size={28} />
-                  </div>
-                </div>
-                
-                <div className="text-center mb-6 md:mb-8 animate-slide-up delay-100">
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Acceso Administrativo</h2>
-                    <p className="text-gray-500 font-light mt-1">Ingresa credenciales maestras</p>
-                </div>
+              <div className="max-w-sm mx-auto w-full animate-slide-up">
+                   <button 
+                    onClick={resetToClient}
+                    className="absolute top-8 left-8 md:left-12 text-gray-400 hover:text-gray-900 transition-colors"
+                   >
+                       <ArrowLeft size={24} />
+                   </button>
 
-                <form onSubmit={verifyAdminPassword} className="space-y-6 animate-slide-up delay-200">
-                  <div className="group">
-                    <input 
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      className="block w-full px-6 py-3 md:py-4 text-center text-lg md:text-xl tracking-[0.5em] bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500 outline-none transition-all shadow-sm"
-                      placeholder="••••••••"
-                      autoFocus
-                      required
-                    />
-                    {authError && (
-                      <div className="flex items-center justify-center mt-3 text-red-500 text-sm font-medium animate-pulse">
-                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-2"></span>
-                          {authError}
+                  <div className="text-center mb-8 mt-4">
+                      <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-500 ring-4 ring-red-50">
+                          <Lock size={32} />
                       </div>
-                    )}
+                      <h2 className="text-2xl font-bold text-gray-900">Acceso Admin</h2>
+                      <p className="text-gray-500 text-sm mt-1">Credenciales maestras requeridas.</p>
                   </div>
-                  <button 
-                    type="submit"
-                    className="w-full bg-gray-900 hover:bg-black text-white py-3 md:py-4 rounded-xl font-bold text-sm tracking-wide shadow-lg transition-all transform hover:-translate-y-1 active:scale-95"
-                  >
-                    Acceder al Panel
-                  </button>
-                </form>
+
+                  <form onSubmit={verifyAdminPassword} className="space-y-6">
+                      <div>
+                          <input 
+                            type="password"
+                            value={adminPassword}
+                            onChange={(e) => setAdminPassword(e.target.value)}
+                            className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-center text-2xl tracking-[0.5em] text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                            placeholder="••••••••"
+                            autoFocus
+                            required
+                          />
+                          {authError && (
+                              <p className="text-red-500 text-sm font-bold text-center mt-3 animate-pulse bg-red-50 py-1 px-3 rounded-full inline-block w-full">{authError}</p>
+                          )}
+                      </div>
+
+                      <button 
+                        type="submit"
+                        className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                          Desbloquear
+                      </button>
+                  </form>
               </div>
             )}
+
           </div>
+
         </div>
         
-        <div className="text-center w-full text-xs text-gray-400 font-medium flex flex-col items-center gap-1 pb-4">
-          <span>&copy; 2025 Toome Analytics. Secure Connection via Odoo XML-RPC.</span>
-          <span>
-            Desarrollado por <a href="#" className="text-odoo-primary hover:underline font-bold transition-colors">GaorSystem Perú</a>
-          </span>
+        {/* Footer */}
+        <div className="mt-8 text-center text-xs text-gray-400 font-medium pb-4">
+            <p>&copy; 2025 Toome Analytics. Secure Connection via Odoo XML-RPC.</p>
+            <p className="mt-1 opacity-75">Desarrollado por <span className="text-odoo-primary font-bold">GaorSystem Perú</span></p>
         </div>
+
       </div>
     </div>
   );
