@@ -16,7 +16,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
   const [displayBranches, setDisplayBranches] = useState<BranchKPI[]>(initialBranches);
   const [displaySales, setDisplaySales] = useState<SalesData[]>(initialSales);
   
+  // DATE LOGIC
   const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO' | 'CUSTOM'>('HOY');
+  
+  // Default states for selectors
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [customRange, setCustomRange] = useState<DateRange>({
       start: new Date().toISOString().split('T')[0],
       end: new Date().toISOString().split('T')[0]
@@ -29,7 +33,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
           setDisplayKpis(MOCK_KPIS);
           setDisplayBranches(MOCK_BRANCHES);
       }
-  }, [activeConnection, dateFilter]); // Trigger on filter change
+  }, [activeConnection, dateFilter, selectedMonth, customRange.start, customRange.end]); 
+
+  const getEffectiveDateRange = (): { start: string, end: string } => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+
+    if (dateFilter === 'HOY') {
+        return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}` };
+    }
+    
+    if (dateFilter === 'MES') {
+        // Use selectedMonth state (YYYY-MM)
+        const [year, month] = selectedMonth.split('-');
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        return { 
+            start: `${year}-${month}-01`, 
+            end: `${year}-${month}-${lastDay}` 
+        };
+    }
+
+    if (dateFilter === 'AÑO') {
+        return { start: `${y}-01-01`, end: `${y}-12-31` };
+    }
+
+    if (dateFilter === 'CUSTOM') {
+        return { start: customRange.start, end: customRange.end };
+    }
+
+    return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}` };
+  };
 
   const loadRealTimeData = async () => {
       if (!activeConnection) return;
@@ -44,12 +79,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
             allowedCompanyIds = userSession.clientData.allowedCompanyIds;
         }
 
+        const { start, end } = getEffectiveDateRange();
+
         const { salesData, branches, totalSales, totalMargin, totalItems } = await fetchOdooRealTimeData(
             activeConnection, 
+            start,
+            end,
             allowedCompanyIds, 
-            allowedPosIds, 
-            dateFilter,
-            dateFilter === 'CUSTOM' ? customRange : undefined
+            allowedPosIds
         );
 
         setDisplaySales(salesData);
@@ -87,12 +124,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
             <div className="flex items-center gap-2 mt-2">
                 <div className={`w-2 h-2 rounded-full ${activeConnection ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    {activeConnection ? activeConnection.name : 'SIN CONEXIÓN'} | {new Date().toLocaleDateString()}
+                    {activeConnection ? activeConnection.name : 'SIN CONEXIÓN'} | {getEffectiveDateRange().start === getEffectiveDateRange().end ? getEffectiveDateRange().start : `${getEffectiveDateRange().start} - ${getEffectiveDateRange().end}`}
                 </p>
             </div>
         </div>
         
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-2 w-full md:w-auto">
             <div className="flex items-center gap-4 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex gap-1">
                     {['HOY', 'MES', 'AÑO', 'CUSTOM'].map(filter => (
@@ -116,9 +153,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                 </button>
             </div>
             
-            {/* Custom Range Picker */}
+            {/* Conditional Sub-selectors */}
+            {dateFilter === 'MES' && (
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
+                    <span className="font-bold text-gray-500">Seleccionar Mes:</span>
+                    <input 
+                        type="month" 
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-odoo-primary outline-none text-gray-700"
+                    />
+                </div>
+            )}
+
             {dateFilter === 'CUSTOM' && (
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up">
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
                     <span className="font-bold text-gray-500">Desde:</span>
                     <input 
                         type="date" 
@@ -181,14 +230,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                    <div className="flex items-center gap-1 mt-2">
                        <TrendingUp size={14} className={kpi.isDark ? 'text-green-400' : 'text-odoo-primary'} />
                        <span className={`text-xs font-medium ${kpi.isDark ? 'text-green-400' : 'text-odoo-primary'}`}>
-                           {dateFilter === 'CUSTOM' ? 'Rango Personalizado' : dateFilter}
+                           {dateFilter === 'CUSTOM' ? 'Rango Personalizado' : dateFilter === 'MES' ? selectedMonth : dateFilter}
                        </span>
                    </div>
               </div>
           ))}
       </div>
 
-      {/* Branch/POS Performance Section - REDESIGNED */}
+      {/* Branch/POS Performance Section */}
       <div>
           <div className="flex items-center gap-2 mb-4">
               <div className="bg-odoo-primary p-1.5 rounded-lg text-white">

@@ -13,7 +13,10 @@ interface SalesViewProps {
 export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('Todos');
+  
+  // Date State
   const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO' | 'CUSTOM'>('MES');
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [customRange, setCustomRange] = useState<DateRange>({
       start: new Date().toISOString().split('T')[0],
       end: new Date().toISOString().split('T')[0]
@@ -24,23 +27,54 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
 
   useEffect(() => {
       loadData();
-  }, [connection, dateFilter]); // Reload when connection or filter type changes
+  }, [connection, dateFilter, selectedMonth, customRange.start, customRange.end]); 
+
+  const getEffectiveDateRange = (): { start: string, end: string } => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+
+    if (dateFilter === 'HOY') {
+        return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}` };
+    }
+    
+    if (dateFilter === 'MES') {
+        const [year, month] = selectedMonth.split('-');
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        return { 
+            start: `${year}-${month}-01`, 
+            end: `${year}-${month}-${lastDay}` 
+        };
+    }
+
+    if (dateFilter === 'AÑO') {
+        return { start: `${y}-01-01`, end: `${y}-12-31` };
+    }
+
+    if (dateFilter === 'CUSTOM') {
+        return { start: customRange.start, end: customRange.end };
+    }
+
+    return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}` };
+  };
 
   const loadData = async () => {
       setLoading(true);
       
       let allowedCompanyIds: string[] | undefined = undefined;
       
-      // Extract allowed companies from session if it's a CLIENT user
       if (userSession?.role === 'CLIENT' && userSession.clientData) {
           allowedCompanyIds = userSession.clientData.allowedCompanyIds;
       }
 
+      const { start, end } = getEffectiveDateRange();
+
       const data = await fetchSalesRegister(
           connection || { connectionMode: 'MOCK' } as any, 
-          dateFilter,
-          allowedCompanyIds,
-          dateFilter === 'CUSTOM' ? customRange : undefined
+          start,
+          end,
+          allowedCompanyIds
       );
       setSales(data);
       setLoading(false);
@@ -80,6 +114,20 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
                  ))}
              </div>
             
+            {/* Month Selector */}
+            {dateFilter === 'MES' && (
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
+                    <span className="font-bold text-gray-500">Mes:</span>
+                    <input 
+                        type="month" 
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-odoo-primary outline-none"
+                    />
+                </div>
+            )}
+
+            {/* Custom Range Selector */}
             {dateFilter === 'CUSTOM' && (
                 <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
                     <span className="font-bold text-gray-500">Desde:</span>
@@ -126,7 +174,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase">Documentos</p>
               <h3 className="text-2xl font-bold text-gray-800 mt-1">{filtered.length}</h3>
-              <p className="text-[10px] text-gray-400 mt-1">Periodo: {dateFilter}</p>
+              <p className="text-[10px] text-gray-400 mt-1">Periodo: {getEffectiveDateRange().start} / {getEffectiveDateRange().end}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase">Base Imponible</p>
@@ -222,7 +270,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
                       {filtered.length === 0 && !loading && (
                            <tr>
                                <td colSpan={9} className="p-8 text-center text-gray-400 italic">
-                                   No se encontraron registros para el periodo {dateFilter}.
+                                   No se encontraron registros para el periodo {getEffectiveDateRange().start} a {getEffectiveDateRange().end}.
                                </td>
                            </tr>
                       )}
