@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
 import { ClientAccess, OdooConnection, AppModule } from '../types';
-import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Building2, ChevronRight, ChevronDown, Calendar } from 'lucide-react';
+import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Building2, ChevronRight, ChevronDown, Calendar, LogIn } from 'lucide-react';
 
 interface ClientManagementProps {
   clients: ClientAccess[];
-  connections: OdooConnection[]; // Now receiving real Odoo Connections with Companies
+  connections: OdooConnection[]; 
   onCreateClient: (client: Omit<ClientAccess, 'id' | 'createdAt'>) => void;
   onDeleteClient: (id: string) => void;
+  onSimulateLogin: (key: string) => void;
 }
 
-export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, connections, onCreateClient, onDeleteClient }) => {
+export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, connections, onCreateClient, onDeleteClient, onSimulateLogin }) => {
   const [showForm, setShowForm] = useState(false);
   
   // Form State
@@ -333,12 +334,22 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
                      </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={() => onDeleteClient(client.id)}
-                    className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => onSimulateLogin(client.accessKey)}
+                        className="text-odoo-primary hover:text-white hover:bg-odoo-primary p-2 rounded-full transition-colors flex items-center gap-1 group"
+                        title="Simular Sesión / Ingresar"
+                      >
+                        <LogIn size={18} />
+                      </button>
+                      <button 
+                        onClick={() => onDeleteClient(client.id)}
+                        className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors"
+                        title="Eliminar Cliente"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                  </div>
                 </td>
               </tr>
             ))}

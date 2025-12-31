@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Database, Key, Lock, ArrowLeft, BarChart2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Database, Key, Lock, ArrowLeft, BarChart2, UserCog } from 'lucide-react';
 import { ConnectionConfig } from '../types';
 
 interface LoginProps {
@@ -12,7 +13,6 @@ type LoginStep = 'CLIENT' | 'ADMIN_AUTH';
 
 export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => {
   const [step, setStep] = useState<LoginStep>('CLIENT');
-  const [clickCount, setClickCount] = useState(0);
   
   // Admin Auth State
   const [adminPassword, setAdminPassword] = useState('');
@@ -20,21 +20,6 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
 
   // Client Form State
   const [clientKey, setClientKey] = useState('');
-
-  // Hidden Trigger Logic
-  const handleLogoClick = () => {
-    if (step !== 'CLIENT') return;
-    
-    const newCount = clickCount + 1;
-    setClickCount(newCount);
-    
-    if (newCount >= 4) {
-      setStep('ADMIN_AUTH');
-      setClickCount(0);
-      setAdminPassword('');
-      setAuthError('');
-    }
-  };
 
   const verifyAdminPassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +39,6 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
 
   const resetToClient = () => {
     setStep('CLIENT');
-    setClickCount(0);
     setAdminPassword('');
     setAuthError('');
   };
@@ -69,13 +53,12 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
         
         {/* Brand Section */}
         <div 
-          onClick={handleLogoClick}
-          className="md:w-1/2 bg-gradient-to-br from-odoo-primary to-[#5a3a52] p-12 text-white flex flex-col justify-between relative overflow-hidden cursor-pointer select-none group"
+          className="md:w-1/2 bg-gradient-to-br from-odoo-primary to-[#5a3a52] p-12 text-white flex flex-col justify-between relative overflow-hidden select-none"
         >
             {/* Pattern Overlay */}
             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
             
-            <div className="relative z-10 group-hover:scale-105 transition-transform duration-500">
+            <div className="relative z-10">
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm mb-6 shadow-inner border border-white/10">
                     <BarChart2 className="text-white" />
                 </div>
@@ -112,7 +95,7 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
           
           {/* STEP 1: CLIENT LOGIN */}
           {step === 'CLIENT' && (
-            <div className="animate-fade-in w-full max-w-sm mx-auto">
+            <div className="animate-fade-in w-full max-w-sm mx-auto flex flex-col h-full justify-center">
               <div className="mb-8">
                   <h2 className="text-3xl font-bold text-gray-800 mb-2 tracking-tight">Bienvenido</h2>
                   <p className="text-gray-500 font-light">Accede a tu panel de control personalizado.</p>
@@ -143,6 +126,16 @@ export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => 
                   <ArrowRight size={18} />
                 </button>
               </form>
+
+              <div className="mt-8 pt-6 border-t border-gray-200/60 text-center">
+                <button 
+                  onClick={() => setStep('ADMIN_AUTH')}
+                  className="text-gray-400 hover:text-odoo-secondary text-sm font-medium flex items-center justify-center gap-2 transition-colors mx-auto"
+                >
+                  <UserCog size={16} />
+                  <span>Soy Administrador</span>
+                </button>
+              </div>
             </div>
           )}
 

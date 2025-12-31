@@ -414,6 +414,7 @@ export default function App() {
                     connections={connections} 
                     onCreateClient={handleCreateClient}
                     onDeleteClient={handleDeleteClient}
+                    onSimulateLogin={handleClientLogin}
                   />
                )}
                {currentView === ViewMode.CONNECTION_MANAGEMENT && session.role === 'ADMIN' && (
