@@ -15,7 +15,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
   const [docTypeFilter, setDocTypeFilter] = useState('Todos');
   
   // Date State
-  const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO' | 'CUSTOM'>('MES');
+  const [dateFilter, setDateFilter] = useState<'HOY' | 'AYER' | 'MES' | 'AÑO' | 'CUSTOM'>('MES');
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [customRange, setCustomRange] = useState<DateRange>({
       start: new Date().toISOString().split('T')[0],
@@ -29,14 +29,24 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
       loadData();
   }, [connection, dateFilter, selectedMonth, customRange.start, customRange.end]); 
 
-  const getEffectiveDateRange = (): { start: string, end: string } => {
+  const getEffectiveDateRange = (): { start: string, end: string, label: string } => {
     const now = new Date();
+    
+    if (dateFilter === 'AYER') {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const y = yesterday.getFullYear();
+        const m = String(yesterday.getMonth() + 1).padStart(2, '0');
+        const d = String(yesterday.getDate()).padStart(2, '0');
+        return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}`, label: 'Ayer' };
+    }
+
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
     const d = String(now.getDate()).padStart(2, '0');
 
     if (dateFilter === 'HOY') {
-        return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}` };
+        return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}`, label: 'Hoy' };
     }
     
     if (dateFilter === 'MES') {
@@ -44,19 +54,21 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
         const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
         return { 
             start: `${year}-${month}-01`, 
-            end: `${year}-${month}-${lastDay}` 
+            end: `${year}-${month}-${lastDay}`,
+            label: selectedMonth
         };
     }
 
     if (dateFilter === 'AÑO') {
-        return { start: `${y}-01-01`, end: `${y}-12-31` };
+        return { start: `${y}-01-01`, end: `${y}-12-31`, label: `Año ${y}` };
     }
 
     if (dateFilter === 'CUSTOM') {
-        return { start: customRange.start, end: customRange.end };
+        const label = customRange.start === customRange.end ? customRange.start : `${customRange.start} - ${customRange.end}`;
+        return { start: customRange.start, end: customRange.end, label };
     }
 
-    return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}` };
+    return { start: `${y}-${m}-${d}`, end: `${y}-${m}-${d}`, label: 'Hoy' };
   };
 
   const loadData = async () => {
@@ -91,6 +103,8 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
   const totalIGV = filtered.reduce((acc, curr) => acc + curr.igvAmount, 0);
   const totalTotal = filtered.reduce((acc, curr) => acc + curr.totalAmount, 0);
 
+  const currentRange = getEffectiveDateRange();
+
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-gray-200 pb-4">
@@ -103,13 +117,13 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
         
         <div className="flex flex-col gap-3">
              <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm self-end md:self-auto">
-                 {['HOY', 'MES', 'AÑO', 'CUSTOM'].map(filter => (
+                 {['HOY', 'AYER', 'MES', 'AÑO', 'CUSTOM'].map(filter => (
                      <button
                         key={filter}
                         onClick={() => setDateFilter(filter as any)}
                         className={`px-4 py-2 text-xs font-bold rounded-md transition-all ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
                      >
-                         {filter === 'CUSTOM' ? 'Personalizado' : filter}
+                         {filter === 'CUSTOM' ? 'Personalizado' : filter === 'AYER' ? 'Ayer' : filter === 'HOY' ? 'Hoy' : filter}
                      </button>
                  ))}
              </div>
@@ -174,7 +188,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase">Documentos</p>
               <h3 className="text-2xl font-bold text-gray-800 mt-1">{filtered.length}</h3>
-              <p className="text-[10px] text-gray-400 mt-1">Periodo: {getEffectiveDateRange().start} / {getEffectiveDateRange().end}</p>
+              <p className="text-[10px] text-gray-400 mt-1">Periodo: {currentRange.label}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase">Base Imponible</p>
@@ -270,7 +284,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
                       {filtered.length === 0 && !loading && (
                            <tr>
                                <td colSpan={9} className="p-8 text-center text-gray-400 italic">
-                                   No se encontraron registros para el periodo {getEffectiveDateRange().start} a {getEffectiveDateRange().end}.
+                                   No se encontraron registros para el periodo {currentRange.label}.
                                </td>
                            </tr>
                       )}

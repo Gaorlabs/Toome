@@ -15,6 +15,19 @@ export interface SalesData {
   transactions: number;
 }
 
+export interface DailyProductSummary {
+  id: string;
+  name: string;
+  qty: number;
+  total: number;
+}
+
+export interface PaymentSummary {
+  name: string;
+  amount: number;
+  count: number;
+}
+
 export interface BranchKPI {
   id: string;
   name: string;
@@ -25,6 +38,16 @@ export interface BranchKPI {
   status: 'OPEN' | 'CLOSED' | 'OPENING_CONTROL' | 'CLOSING_CONTROL';
   cashier?: string; // Nombre del cajero/usuario actual
   transactionCount: number;
+  // New specific details per box
+  topProducts?: DailyProductSummary[];
+  payments?: PaymentSummary[];
+}
+
+// Nuevas interfaces para el detalle del dashboard (Globales)
+export interface DocumentTypeSummary {
+  type: 'Boleta' | 'Factura' | 'Nota Crédito' | 'Ticket/Int';
+  count: number;
+  total: number;
 }
 
 export interface ProductPerformance {

@@ -1,5 +1,5 @@
 
-import { OdooConnection, CalendarEvent, OdooCompany, SalesData, InventoryItem, BranchKPI, PosConfig, SalesRegisterItem, CashClosingReport, PaymentMethodSummary, DateRange } from '../types';
+import { OdooConnection, CalendarEvent, OdooCompany, SalesData, InventoryItem, BranchKPI, PosConfig, SalesRegisterItem, CashClosingReport, PaymentMethodSummary, DateRange, PaymentSummary, DailyProductSummary, DocumentTypeSummary } from '../types';
 import { OdooClient } from './OdooRpcClient';
 
 // ==========================================
@@ -66,7 +66,6 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
         const client = getClient(connection);
         const uid = await client.authenticate(connection.user, connection.apiKey);
         
-        // Fetch POS configs
         const posConfigs = await client.searchRead(
             uid,
             connection.apiKey,
@@ -77,7 +76,6 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
         );
         
         if (!Array.isArray(posConfigs)) return null;
-
         return posConfigs as PosConfig[];
 
     } catch (e) {
@@ -87,15 +85,13 @@ export const fetchPosConfigs = async (connection: OdooConnection): Promise<PosCo
 };
 
 /**
- * Genera las condiciones de fecha basadas en strings explícitos.
- * Recibe startDate (YYYY-MM-DD) y endDate (YYYY-MM-DD)
+ * Helper para generar condiciones de fecha SQL-like para Odoo
  */
 const getDateConditions = (dateField: string, startDate: string, endDate: string, isDatetime: boolean): any[][] => {
     let start = startDate;
     let end = endDate;
 
     if (isDatetime) {
-        // Asegurar cobertura completa del día
         if (!start.includes(' ')) start += ' 00:00:00';
         if (!end.includes(' ')) end += ' 23:59:59';
     }
@@ -106,14 +102,10 @@ const getDateConditions = (dateField: string, startDate: string, endDate: string
     ];
 };
 
-/**
- * DATOS EN TIEMPO REAL - CORAZÓN DEL SISTEMA
- * Ahora acepta startDate y endDate explícitos para control total desde la UI.
- */
 export const fetchOdooRealTimeData = async (
     connection: OdooConnection, 
-    startDate: string, // YYYY-MM-DD
-    endDate: string,   // YYYY-MM-DD
+    startDate: string,
+    endDate: string,
     allowedCompanyIds?: string[],
     allowedPosIds?: number[]
 ): Promise<{
@@ -121,286 +113,506 @@ export const fetchOdooRealTimeData = async (
     branches: BranchKPI[],
     totalSales: number,
     totalMargin: number,
-    totalItems: number
+    totalItems: number,
+    paymentMethods: PaymentSummary[],
+    topProducts: DailyProductSummary[],
+    documentTypes: DocumentTypeSummary[]
 }> => {
   
-  // MOCK DATA
+  // ==================================================================================
+  // MOCK DATA (Simulación para pruebas)
+  // ==================================================================================
   if (connection.connectionMode === 'MOCK') {
-      // Simular variaciones basadas en fecha
       const start = new Date(startDate).getTime();
       const end = new Date(endDate).getTime();
-      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-      
-      const multiplier = diffDays > 30 ? 12 : diffDays > 1 ? 4 : 1;
-      
+      const diffDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+      const baseDailySales = 1500; 
+      const totalSalesCalc = baseDailySales * diffDays;
+      const totalItemsCalc = Math.floor(totalSalesCalc / 45); 
+
+      const salesData: SalesData[] = [];
+      if (startDate === endDate) {
+          salesData.push(
+            { date: '09:00', sales: baseDailySales * 0.1, margin: baseDailySales * 0.03, transactions: 2 },
+            { date: '13:00', sales: baseDailySales * 0.3, margin: baseDailySales * 0.09, transactions: 6 },
+            { date: '18:00', sales: baseDailySales * 0.6, margin: baseDailySales * 0.18, transactions: 12 },
+          );
+      } else {
+           salesData.push(
+              { date: startDate, sales: baseDailySales, margin: baseDailySales * 0.3, transactions: Math.floor(baseDailySales/45) },
+              { date: endDate, sales: baseDailySales * 0.9, margin: (baseDailySales*0.9) * 0.3, transactions: Math.floor((baseDailySales*0.9)/45) },
+           );
+      }
+
+      const mockProducts = [
+          { id: '1', name: 'Paracetamol 500mg', qty: 20 * diffDays, total: 40 * diffDays },
+          { id: '2', name: 'Ibuprofeno 400mg', qty: 15 * diffDays, total: 60 * diffDays }
+      ];
+
       return {
-          salesData: [
-              { date: startDate, sales: 1200 * multiplier, margin: 400 * multiplier, transactions: 15 },
-              { date: endDate, sales: 2830 * multiplier, margin: 950 * multiplier, transactions: 35 },
-          ],
+          salesData,
           branches: [
-              { id: '1', name: 'Farmacia Central', sales: 5800 * multiplier, margin: 2100 * multiplier, target: 5000, profitability: 36.2, status: 'OPEN', transactionCount: 45, cashier: 'Juan Pérez' },
-              { id: '2', name: 'Sucursal Surco', sales: 2730 * multiplier, margin: 900 * multiplier, target: 3000, profitability: 32.9, status: 'CLOSED', transactionCount: 22, cashier: 'Ana Lopez' }
+              { 
+                  id: '1', name: 'Caja Principal (Mock)', sales: totalSalesCalc, margin: totalSalesCalc * 0.3, target: 5000 * diffDays, profitability: 30.0, status: 'OPEN', transactionCount: totalItemsCalc, cashier: 'Demo User',
+                  topProducts: mockProducts,
+                  payments: [{ name: 'Efectivo', amount: totalSalesCalc * 0.6, count: 10 }, { name: 'Visa', amount: totalSalesCalc * 0.4, count: 5 }]
+              }
           ],
-          totalSales: 8530 * multiplier,
-          totalMargin: 3000 * multiplier,
-          totalItems: 110 * multiplier
+          totalSales: totalSalesCalc,
+          totalMargin: totalSalesCalc * 0.3,
+          totalItems: totalItemsCalc,
+          paymentMethods: [{ name: 'Efectivo', amount: totalSalesCalc * 0.6, count: 10 }, { name: 'Yape', amount: totalSalesCalc * 0.4, count: 8 }],
+          topProducts: mockProducts,
+          documentTypes: [{ type: 'Boleta', count: totalItemsCalc, total: totalSalesCalc }]
       };
   }
   
+  // ==================================================================================
+  // REAL DATA FETCHING
+  // ==================================================================================
   try {
     const client = getClient(connection);
     const uid = await client.authenticate(connection.user, connection.apiKey);
+    
+    // BUILD CONTEXT
+    const context: any = {};
+    if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+        const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+        context.allowed_company_ids = compIdsInt;
+    }
 
-    // --- PASO 1: DEFINIR EL ALCANCE (CAJAS A CONSULTAR) ---
+    // --- 1. CONFIGURACIÓN INICIAL ---
+    let branchesMap: Record<string, BranchKPI> = {};
+    let configIds: number[] = [];
+
+    // Filtros de Cajas
     let configDomain: any[] = [];
     if (allowedPosIds && allowedPosIds.length > 0) {
-        configDomain.push(['id', 'in', allowedPosIds]);
+        configDomain.push(['id', 'in', allowedPosIds] as any);
     } else if (allowedCompanyIds && allowedCompanyIds.length > 0) {
         const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
-        configDomain.push(['company_id', 'in', compIdsInt]);
+        configDomain.push(['company_id', 'in', compIdsInt] as any);
     }
-
-    const configs = await client.searchRead(uid, connection.apiKey, 'pos.config', configDomain, ['id', 'name']);
-    const branchesMap: Record<string, BranchKPI> = {};
-
-    if (Array.isArray(configs)) {
-        configs.forEach((cfg: any) => {
-            branchesMap[cfg.id] = {
-                id: cfg.id.toString(),
-                name: cfg.name,
-                sales: 0,
-                margin: 0,
-                target: 0,
-                profitability: 0,
-                status: 'CLOSED',
-                transactionCount: 0,
-                cashier: '---'
-            };
-        });
-    }
-
-    // --- PASO 2: OBTENER ESTADO ACTUAL (SESIONES) ---
-    const sessionDomain = [
-        ['state', '!=', 'closed'], 
-        ['config_id', 'in', Object.keys(branchesMap).map(Number)]
-    ];
     
-    const activeSessions = await client.searchRead(
-        uid, 
-        connection.apiKey, 
-        'pos.session', 
-        sessionDomain, 
-        ['config_id', 'user_id', 'state']
-    );
-
-    if (Array.isArray(activeSessions)) {
-        activeSessions.forEach((sess: any) => {
-             const configId = Array.isArray(sess.config_id) ? sess.config_id[0] : sess.config_id;
-             if (branchesMap[configId]) {
-                 const st = sess.state;
-                 branchesMap[configId].status = (st === 'opened' || st === 'opening_control') ? 'OPEN' : 'CLOSING_CONTROL';
-                 branchesMap[configId].cashier = Array.isArray(sess.user_id) ? sess.user_id[1] : 'Usuario';
-             }
-        });
+    try {
+        const configs = await client.searchRead(uid, connection.apiKey, 'pos.config', configDomain, ['id', 'name'], { context });
+        if (Array.isArray(configs)) {
+            configIds = configs.map((c: any) => c.id);
+            configs.forEach((cfg: any) => {
+                branchesMap[cfg.id] = {
+                    id: cfg.id.toString(),
+                    name: cfg.name,
+                    sales: 0, margin: 0, target: 0, profitability: 0, status: 'CLOSED', transactionCount: 0, cashier: '---',
+                    topProducts: [],
+                    payments: []
+                };
+            });
+        }
+    } catch (e) {
+        console.error("Critical: Failed to load POS Configs", e);
     }
 
-    // --- PASO 3: OBTENER VENTAS (AGREGACIÓN) ---
-    // Usamos las fechas explícitas proporcionadas por la UI
-    const dateConditions = getDateConditions('date_order', startDate, endDate, true);
-    
-    const orderDomain: any[] = [
-        ['state', 'in', ['paid', 'done', 'invoiced']],
-        ...dateConditions,
-        ['config_id', 'in', Object.keys(branchesMap).map(Number)]
-    ];
+    const dateStartStr = startDate + ' 00:00:00';
+    const dateEndStr = endDate + ' 23:59:59';
+    const validStates = ['paid', 'done', 'invoiced'];
 
-    const posGroups = await client.readGroup(
-        uid, connection.apiKey, 
-        'pos.order',
-        orderDomain,
-        ['amount_total', 'date_order', 'config_id'], 
-        ['date_order:day', 'config_id'] 
-    );
+    // --- 2. GLOBAL PAYMENTS ---
+    let globalPayments: PaymentSummary[] = [];
+    try {
+        const paymentDomain: any[] = [
+            ['payment_date', '>=', dateStartStr],
+            ['payment_date', '<=', dateEndStr],
+            ['pos_order_id.state', 'in', validStates]
+        ];
+        
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+             const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+             paymentDomain.push(['pos_order_id.company_id', 'in', compIdsInt] as any);
+        } else if (configIds.length > 0) {
+            paymentDomain.push(['pos_order_id.config_id', 'in', configIds] as any);
+        }
 
-    const salesByDate: Record<string, number> = {};
+        const paymentGroups = await client.readGroup(
+            uid, connection.apiKey,
+            'pos.payment',
+            paymentDomain,
+            ['amount', 'payment_method_id'],
+            ['payment_method_id'],
+            { context }
+        );
+
+        if (Array.isArray(paymentGroups)) {
+             globalPayments = paymentGroups.map((pg: any) => ({
+                name: Array.isArray(pg.payment_method_id) ? pg.payment_method_id[1] : 'Otros',
+                amount: pg.amount || 0,
+                count: pg.payment_method_id_count || 0
+             })).sort((a: any, b: any) => b.amount - a.amount);
+        }
+    } catch (e) {
+        console.warn("Error loading global payments:", e);
+    }
+
+    // --- 3. CHART & TOTALS ---
     let totalSales = 0;
     let totalItems = 0;
+    let salesData: SalesData[] = [];
 
-    if (Array.isArray(posGroups)) {
-        for (const group of posGroups) {
-            const amt = group.amount_total || 0;
-            const count = group.config_id_count || 0; 
-            const dateKey = group['date_order:day'] || 'N/A';
-            
-            if (!salesByDate[dateKey]) salesByDate[dateKey] = 0;
-            salesByDate[dateKey] += amt;
-
-            if (group.config_id) {
-                const bId = Array.isArray(group.config_id) ? group.config_id[0] : group.config_id;
-                if (branchesMap[bId]) {
-                    branchesMap[bId].sales += amt;
-                    branchesMap[bId].transactionCount += count;
-                }
-            }
-
-            totalSales += amt;
-            totalItems += count;
+    try {
+        const orderDomain: any[] = [
+            ['state', 'in', validStates],
+            ['date_order', '>=', dateStartStr],
+            ['date_order', '<=', dateEndStr]
+        ];
+        
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+             const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+             orderDomain.push(['company_id', 'in', compIdsInt] as any);
+        } else if (configIds.length > 0) {
+            orderDomain.push(['config_id', 'in', configIds] as any);
         }
+
+        // B. Timeline Data for Chart
+        const salesByDateGroups = await client.readGroup(
+            uid, connection.apiKey, 
+            'pos.order',
+            orderDomain,
+            ['amount_total', 'date_order'], 
+            ['date_order:day'], // Standard Odoo grouping
+            { context } 
+        );
+        
+        if (Array.isArray(salesByDateGroups)) {
+            salesData = salesByDateGroups.map((group: any) => ({
+                date: group['date_order:day'] || group['date_order'] || 'N/A', // Fallback key
+                sales: group.amount_total || 0,
+                margin: (group.amount_total || 0) * 0.3,
+                transactions: group.date_order_count || 0
+            })).sort((a: any, b: any) => a.date.localeCompare(b.date));
+        }
+
+        // Recalculate global totals from timeline to ensure consistency
+        totalSales = salesData.reduce((sum, d) => sum + d.sales, 0);
+        totalItems = salesData.reduce((sum, d) => sum + d.transactions, 0);
+
+    } catch (e) {
+        console.warn("Partial Error: Failed to load sales timeline", e);
     }
 
-    Object.values(branchesMap).forEach(b => {
-        b.margin = b.sales * 0.30; 
-        b.profitability = 30.0;
+    // --- 4. GLOBAL TOP PRODUCTS ---
+    let globalTopProducts: DailyProductSummary[] = [];
+    try {
+        const productDomain: any[] = [
+             ['order_id.date_order', '>=', dateStartStr],
+             ['order_id.date_order', '<=', dateEndStr],
+             ['order_id.state', 'in', validStates]
+        ];
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+             const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+             productDomain.push(['order_id.company_id', 'in', compIdsInt] as any);
+        } else if (configIds.length > 0) {
+             productDomain.push(['order_id.config_id', 'in', configIds] as any);
+        }
+
+        const productGroups = await client.readGroup(
+            uid, connection.apiKey,
+            'pos.order.line',
+            productDomain,
+            ['price_subtotal_incl', 'qty', 'product_id'], 
+            ['product_id'], 
+            { limit: 5, orderby: 'price_subtotal_incl desc', context } 
+        );
+
+        if (Array.isArray(productGroups)) {
+             globalTopProducts = productGroups.map((pg: any) => ({
+                id: Array.isArray(pg.product_id) ? pg.product_id[0] : '0',
+                name: Array.isArray(pg.product_id) ? pg.product_id[1] : 'Producto Desconocido',
+                qty: pg.qty || 0,
+                total: pg.price_subtotal_incl || 0
+             })).sort((a: any, b: any) => b.total - a.total);
+        }
+
+    } catch (e) {
+        console.warn("Error loading global products:", e);
+    }
+
+    // --- 5. DETAILED BOX INFO (Loop Infalible) ---
+    // Here we fetch total sales specifically for each box to fix "S/ 0" issue
+    const detailPromises = configIds.map(async (confId: number) => {
+         if (!branchesMap[confId]) return;
+
+         try {
+             // 5.1 FETCH BOX SALES TOTAL (The Fix)
+             const boxTotalDomain = [
+                 ['date_order', '>=', dateStartStr],
+                 ['date_order', '<=', dateEndStr],
+                 ['state', 'in', validStates],
+                 ['config_id', '=', confId]
+             ];
+             
+             const boxStats = await client.readGroup(
+                uid, connection.apiKey, 'pos.order',
+                boxTotalDomain,
+                ['amount_total'],
+                [], // No grouping, just sum
+                { context }
+             );
+
+             if (boxStats && boxStats.length > 0) {
+                 branchesMap[confId].sales = boxStats[0].amount_total || 0;
+                 branchesMap[confId].transactionCount = boxStats[0].amount_total_count || boxStats[0].__count || 0;
+                 branchesMap[confId].margin = branchesMap[confId].sales * 0.30; 
+                 branchesMap[confId].profitability = branchesMap[confId].sales > 0 ? 30.0 : 0;
+             }
+
+             // 5.2 Top Products per Box
+             const boxProductDomain = [
+                 ['order_id.date_order', '>=', dateStartStr],
+                 ['order_id.date_order', '<=', dateEndStr],
+                 ['order_id.state', 'in', validStates],
+                 ['order_id.config_id', '=', confId]
+             ];
+             
+             const productGroups = await client.readGroup(
+                uid, connection.apiKey,
+                'pos.order.line',
+                boxProductDomain,
+                ['price_subtotal_incl', 'qty', 'product_id'], 
+                ['product_id'], 
+                { limit: 5, orderby: 'price_subtotal_incl desc', context } 
+             );
+             
+             if (Array.isArray(productGroups)) {
+                 branchesMap[confId].topProducts = productGroups.map((pg: any) => ({
+                    id: Array.isArray(pg.product_id) ? pg.product_id[0] : '0',
+                    name: Array.isArray(pg.product_id) ? pg.product_id[1] : 'Producto Desconocido',
+                    qty: pg.qty || 0,
+                    total: pg.price_subtotal_incl || 0
+                 })).sort((a: any, b: any) => b.total - a.total);
+             }
+             
+             // 5.3 Box Specific Payments
+             const boxPaymentDomain = [
+                ['payment_date', '>=', dateStartStr],
+                ['payment_date', '<=', dateEndStr],
+                ['pos_order_id.config_id', '=', confId],
+                ['pos_order_id.state', 'in', validStates]
+             ];
+
+             const paymentGroups = await client.readGroup(
+                uid, connection.apiKey,
+                'pos.payment',
+                boxPaymentDomain,
+                ['amount', 'payment_method_id'],
+                ['payment_method_id'],
+                { context }
+             );
+
+             if (Array.isArray(paymentGroups)) {
+                 branchesMap[confId].payments = paymentGroups.map((pg: any) => ({
+                    name: Array.isArray(pg.payment_method_id) ? pg.payment_method_id[1] : 'Otros',
+                    amount: pg.amount || 0,
+                    count: pg.payment_method_id_count || 0
+                 })).sort((a: any, b: any) => b.amount - a.amount);
+             }
+
+         } catch (e) {
+             console.warn(`Error loading details for box ${confId}`, e);
+         }
+         
+         // 5.4 Status Check
+         try {
+             const activeSession = await client.searchRead(
+                 uid, connection.apiKey, 'pos.session',
+                 [['config_id', '=', confId], ['state', '!=', 'closed']],
+                 ['user_id', 'state'],
+                 { limit: 1, context }
+             );
+             
+             if (activeSession && activeSession.length > 0) {
+                 const sess = activeSession[0];
+                 branchesMap[confId].status = (sess.state === 'opened' || sess.state === 'opening_control') ? 'OPEN' : 'CLOSING_CONTROL';
+                 branchesMap[confId].cashier = Array.isArray(sess.user_id) ? sess.user_id[1] : 'Usuario';
+             }
+         } catch (e) { /* ignore */ }
     });
 
-    const totalMargin = totalSales * 0.30;
-    const salesData: SalesData[] = Object.entries(salesByDate).map(([date, sales]) => ({
-        date,
-        sales,
-        margin: sales * 0.30,
-        transactions: 0
-    })).sort((a, b) => a.date.localeCompare(b.date)); // Sort by date
+    await Promise.all(detailPromises);
+
+
+    // --- 6. DOCUMENT TYPES (Invoices) ---
+    let documentTypes: DocumentTypeSummary[] = [];
+    try {
+        const invoiceDomain: any[] = [
+            ['invoice_date', '>=', startDate],
+            ['invoice_date', '<=', endDate],
+            ['move_type', 'in', ['out_invoice', 'out_refund']], 
+            ['state', '=', 'posted']
+        ];
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+             const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+             invoiceDomain.push(['company_id', 'in', compIdsInt] as any);
+        }
+
+        const docGroups = await client.readGroup(uid, connection.apiKey, 'account.move', invoiceDomain, ['amount_total', 'move_type'], ['move_type'], { context });
+        
+        if (Array.isArray(docGroups)) {
+            documentTypes = docGroups.map((dg: any) => {
+                let type: any = 'Factura';
+                if (dg.move_type === 'out_refund') type = 'Nota Crédito';
+                return { type: type, count: dg.move_type_count || 0, total: dg.amount_total || 0 };
+            });
+        }
+    } catch (e) {
+        console.warn("Failed to load invoices", e);
+    }
+
+    const totalInvoiced = documentTypes.reduce((acc, curr) => acc + curr.total, 0);
+    const totalReceipts = Math.max(0, totalSales - totalInvoiced);
+    
+    if (totalReceipts > 0) {
+        documentTypes.push({
+            type: 'Ticket/Int',
+            count: Math.max(0, totalItems - documentTypes.reduce((acc, curr) => acc + curr.count, 0)),
+            total: totalReceipts
+        });
+    }
 
     return {
         salesData,
         branches: Object.values(branchesMap),
         totalSales,
-        totalMargin,
-        totalItems
+        totalMargin: totalSales * 0.3,
+        totalItems,
+        paymentMethods: globalPayments, // Use the directly queried global payments
+        topProducts: globalTopProducts, // Use the directly queried global products
+        documentTypes
     };
 
   } catch (error) {
-    console.error("Error fetching real time data:", error);
-    return { salesData: [], branches: [], totalSales: 0, totalMargin: 0, totalItems: 0 };
+    console.error("Fatal Error fetching real time data:", error);
+    return { salesData: [], branches: [], totalSales: 0, totalMargin: 0, totalItems: 0, paymentMethods: [], topProducts: [], documentTypes: [] };
   }
 };
 
-/**
- * REPORTE DE CIERRE Z / ARQUEO
- */
-export const fetchCashClosingReport = async (connection: OdooConnection, allowedPosIds?: number[]): Promise<CashClosingReport[]> => {
-    return [];
-};
-
-
-/**
- * REGISTRO DE VENTAS DETALLADAS (Facturas/Boletas)
- */
-export const fetchSalesRegister = async (
-    connection: OdooConnection, 
-    startDate: string,
-    endDate: string,
-    allowedCompanyIds?: string[]
-): Promise<SalesRegisterItem[]> => {
+// ADDED MISSING EXPORT
+export const fetchOdooAppointments = async (connection: OdooConnection): Promise<CalendarEvent[]> => {
     if (connection.connectionMode === 'MOCK') {
-        return [
-             { id: '1', date: startDate, documentType: 'Factura', series: 'F001', number: '000459', clientName: 'DISTRIBUIDORA DEL SUR SAC', clientDocType: 'RUC', clientDocNum: '20556789123', currency: 'PEN', baseAmount: 1000.00, igvAmount: 180.00, totalAmount: 1180.00, status: 'Emitido', paymentState: 'Pagado' },
-            { id: '2', date: endDate, documentType: 'Boleta', series: 'B001', number: '002301', clientName: 'JUAN PEREZ', clientDocType: 'DNI', clientDocNum: '45678912', currency: 'PEN', baseAmount: 50.00, igvAmount: 9.00, totalAmount: 59.00, status: 'Emitido', paymentState: 'Pagado' },
-        ];
+        return [];
     }
 
     try {
         const client = getClient(connection);
         const uid = await client.authenticate(connection.user, connection.apiKey);
 
-        // invoice_date is Date type (not Datetime usually)
-        const dateConditions = getDateConditions('invoice_date', startDate, endDate, false);
-        
-        const domain: any[] = [
-            ['move_type', 'in', ['out_invoice', 'out_refund']], 
-            ['state', '=', 'posted'],
-            ...dateConditions
-        ];
-
-        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
-            const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
-            if (compIdsInt.length > 0) {
-                domain.push(['company_id', 'in', compIdsInt]);
-            }
-        }
-
-        const invoices = await client.searchRead(
+        const events = await client.searchRead(
             uid,
             connection.apiKey,
-            'account.move',
-            domain,
-            ['name', 'invoice_date', 'partner_id', 'amount_untaxed', 'amount_tax', 'amount_total', 'move_type', 'payment_state', 'currency_id'],
-            { limit: 100, order: 'invoice_date desc' }
+            'calendar.event',
+            [], 
+            ['name', 'start', 'stop', 'location', 'description', 'state', 'partner_ids'],
+            { limit: 100, order: 'start desc' }
         );
 
-        return invoices.map((inv: any) => ({
-            id: inv.id.toString(),
-            date: inv.invoice_date,
-            documentType: inv.move_type === 'out_refund' ? 'Nota Crédito' : inv.name.startsWith('B') ? 'Boleta' : 'Factura',
-            series: inv.name.split('-')[0] || 'F001',
-            number: inv.name.split('-')[1] || inv.name,
-            clientName: Array.isArray(inv.partner_id) ? inv.partner_id[1] : 'Cliente General',
-            clientDocType: 'RUC', 
-            clientDocNum: '---', 
-            currency: Array.isArray(inv.currency_id) ? inv.currency_id[1] : 'PEN',
-            baseAmount: inv.amount_untaxed,
-            igvAmount: inv.amount_tax,
-            totalAmount: inv.amount_total,
-            status: 'Emitido',
-            paymentState: inv.payment_state === 'paid' ? 'Pagado' : 'No Pagado'
+        if (!Array.isArray(events)) return [];
+
+        return events.map((ev: any) => ({
+            id: ev.id,
+            title: ev.name || 'Sin título',
+            start: ev.start,
+            end: ev.stop,
+            location: ev.location || '',
+            description: ev.description || '',
+            attendees: Array.isArray(ev.partner_ids) ? `${ev.partner_ids.length} asistentes` : undefined,
+            status: 'confirmed'
         }));
 
     } catch (e) {
-        console.error("Error fetching detailed sales:", e);
+        console.error("Error fetching appointments:", e);
         return [];
     }
 };
 
-export const fetchOdooInventory = async (connection: OdooConnection): Promise<InventoryItem[]> => {
+// ADDED MISSING EXPORT
+export const fetchSalesRegister = async (
+    connection: OdooConnection,
+    startDate: string,
+    endDate: string,
+    allowedCompanyIds?: string[]
+): Promise<SalesRegisterItem[]> => {
     if (connection.connectionMode === 'MOCK') {
         return [
-            { id: '1', sku: 'PRD-001', name: 'Paracetamol 500mg', stock: 120, avgDailySales: 15, daysRemaining: 8, status: 'Healthy', category: 'Farmacia', cost: 0.5, totalValue: 60 },
-            { id: '2', sku: 'PRD-002', name: 'Amoxicilina 250mg', stock: 5, avgDailySales: 2, daysRemaining: 2, status: 'Critical', category: 'Farmacia', cost: 1.2, totalValue: 6 },
-        ]
+            {
+                id: '1', date: startDate, documentType: 'Factura', series: 'F001', number: '0000123',
+                clientName: 'Cliente Mock', clientDocType: 'RUC', clientDocNum: '20123456789',
+                currency: 'PEN', baseAmount: 100, igvAmount: 18, totalAmount: 118,
+                status: 'Emitido', paymentState: 'Pagado'
+            }
+        ];
     }
-  
-  try {
-    const client = getClient(connection);
-    const uid = await client.authenticate(connection.user, connection.apiKey);
 
-    const products = await client.searchRead(
-        uid,
-        connection.apiKey,
-        'product.product',
-        [['type', '=', 'product']], 
-        ['name', 'default_code', 'qty_available', 'categ_id', 'standard_price'], 
-        { limit: 50, order: 'qty_available asc' }
-    );
-    
-    return products.map((item: any) => {
-        const stock = item.qty_available || 0;
-        const cost = item.standard_price || 0;
-        let status: 'Critical' | 'Warning' | 'Healthy' = 'Healthy';
+    try {
+        const client = getClient(connection);
+        const uid = await client.authenticate(connection.user, connection.apiKey);
         
-        if (stock <= 5) status = 'Critical';
-        else if (stock <= 15) status = 'Warning';
+        // BUILD CONTEXT: Ensure we can read data from all allowed companies
+        const context: any = {};
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+            const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+            context.allowed_company_ids = compIdsInt;
+        }
 
-        return {
-            id: item.id.toString(),
-            sku: item.default_code || 'S/C',
-            name: item.name,
-            stock: stock,
-            avgDailySales: 0,
-            daysRemaining: 0,
-            status: status,
-            category: Array.isArray(item.categ_id) ? item.categ_id[1] : 'General',
-            cost: cost,
-            totalValue: stock * cost
-        };
-    });
+        const domain: any[] = [
+            ['invoice_date', '>=', startDate],
+            ['invoice_date', '<=', endDate],
+            ['move_type', 'in', ['out_invoice', 'out_refund']], 
+            ['state', '!=', 'draft'] 
+        ];
 
-  } catch (error) {
-    console.error("Error fetching inventory:", error);
-    return [];
-  }
-};
+        if (allowedCompanyIds && allowedCompanyIds.length > 0) {
+            const compIdsInt = allowedCompanyIds.map(id => parseInt(id)).filter(n => !isNaN(n));
+            domain.push(['company_id', 'in', compIdsInt] as any);
+        }
 
-export const fetchOdooAppointments = async (connection: OdooConnection): Promise<CalendarEvent[]> => {
-    return [];
-};
+        const moves = await client.searchRead(
+            uid,
+            connection.apiKey,
+            'account.move',
+            domain,
+            ['id', 'invoice_date', 'move_type', 'name', 'partner_id', 'currency_id', 'amount_untaxed', 'amount_tax', 'amount_total', 'state', 'payment_state'],
+            { limit: 500, order: 'invoice_date desc', context }
+        );
+
+        if (!Array.isArray(moves)) return [];
+
+        return moves.map((m: any) => {
+            let docType: any = 'Factura';
+            if (m.move_type === 'out_refund') docType = 'Nota Crédito';
+            else if (m.name && m.name.startsWith('B')) docType = 'Boleta'; 
+
+            const nameParts = m.name ? m.name.split('-') : ['000', '000'];
+            const series = nameParts.length > 1 ? nameParts[0] : '000';
+            const number = nameParts.length > 1 ? nameParts[1] : m.name;
+
+            return {
+                id: m.id.toString(),
+                date: m.invoice_date,
+                documentType: docType,
+                series: series,
+                number: number,
+                clientName: Array.isArray(m.partner_id) ? m.partner_id[1] : 'Cliente Varios',
+                clientDocType: 'RUC', 
+                clientDocNum: '---', 
+                currency: Array.isArray(m.currency_id) ? m.currency_id[1] : 'PEN',
+                baseAmount: m.amount_untaxed || 0,
+                igvAmount: m.amount_tax || 0,
+                totalAmount: m.amount_total || 0,
+                status: m.state === 'posted' ? 'Emitido' : 'Anulado',
+                paymentState: m.payment_state === 'paid' ? 'Pagado' : 'No Pagado'
+            };
+        });
+
+    } catch (e) {
+        console.error("Error fetching sales register:", e);
+        return [];
+    }
+}
