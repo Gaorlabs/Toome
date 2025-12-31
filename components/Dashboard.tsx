@@ -16,18 +16,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
   const [displayBranches, setDisplayBranches] = useState<BranchKPI[]>(initialBranches);
   const [displaySales, setDisplaySales] = useState<SalesData[]>(initialSales);
   
-  // NEW STATE FOR BREAKDOWNS
   const [paymentMethods, setPaymentMethods] = useState<PaymentSummary[]>([]);
   const [topProducts, setTopProducts] = useState<DailyProductSummary[]>([]);
   const [docTypes, setDocTypes] = useState<DocumentTypeSummary[]>([]);
 
-  // EXPANDED BOX STATE
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
 
-  // DATE LOGIC
   const [dateFilter, setDateFilter] = useState<'HOY' | 'AYER' | 'MES' | 'AÑO' | 'CUSTOM'>('HOY');
   
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); 
   const [customRange, setCustomRange] = useState<DateRange>({
       start: new Date().toISOString().split('T')[0],
       end: new Date().toISOString().split('T')[0]
@@ -134,15 +131,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
   const currentRange = getEffectiveDateRange();
 
   return (
-    <div className="space-y-8 pb-12 animate-fade-in font-sans">
+    <div className="space-y-6 md:space-y-8 pb-12 animate-fade-in font-sans">
       
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-6">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 border-b border-gray-200 pb-6">
         <div>
             <h5 className="text-xs font-bold text-odoo-primary tracking-widest uppercase mb-1 flex items-center gap-2">
                 <PieChart size={14} /> Toome Analytics
             </h5>
-            <h1 className="text-4xl font-bold text-gray-800 tracking-tight">
+            <h1 className="text-2xl md:text-4xl font-bold text-gray-800 tracking-tight">
                 Tablero de Control
             </h1>
             <div className="flex items-center gap-2 mt-2">
@@ -153,24 +150,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
             </div>
         </div>
         
-        <div className="flex flex-col items-end gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-4 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex gap-1">
+        <div className="flex flex-col items-end gap-2 w-full xl:w-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-1 rounded-xl shadow-sm border border-gray-200 w-full sm:w-auto">
+                <div className="flex gap-1 overflow-x-auto w-full sm:w-auto p-1 sm:p-0 no-scrollbar">
                     {['HOY', 'AYER', 'MES', 'AÑO', 'CUSTOM'].map(filter => (
                         <button
                             key={filter}
                             onClick={() => setDateFilter(filter as any)}
-                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+                            className={`px-3 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex-1 sm:flex-none text-center ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
                         >
                             {filter === 'CUSTOM' ? 'Personalizado' : filter === 'AYER' ? 'Ayer' : filter === 'HOY' ? 'Hoy' : filter}
                         </button>
                     ))}
                 </div>
-                <div className="h-6 w-px bg-gray-200"></div>
+                <div className="hidden sm:block h-6 w-px bg-gray-200"></div>
                 <button 
                     onClick={loadRealTimeData}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-gray-600 hover:text-odoo-primary transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-gray-600 hover:text-odoo-primary transition-colors w-full sm:w-auto"
                 >
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     <span>SINCRONIZAR</span>
@@ -179,7 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
             
             {/* Month Selector */}
             {dateFilter === 'MES' && (
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end w-full sm:w-auto justify-end">
                     <span className="font-bold text-gray-500">Seleccionar Mes:</span>
                     <input 
                         type="month" 
@@ -192,7 +189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
 
             {/* Custom Range Selector */}
             {dateFilter === 'CUSTOM' && (
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
+                <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end w-full sm:w-auto justify-end">
                     <span className="font-bold text-gray-500">Desde:</span>
                     <input 
                         type="date" 
@@ -209,7 +206,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                     />
                     <button 
                         onClick={loadRealTimeData}
-                        className="bg-odoo-primary text-white px-2 py-1 rounded hover:bg-odoo-primaryDark"
+                        className="bg-odoo-primary text-white px-2 py-1 rounded hover:bg-odoo-primaryDark ml-auto"
                     >
                         Aplicar
                     </button>
@@ -218,12 +215,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
         </div>
       </div>
 
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPI Section - Responsive Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {displayKpis.map((kpi, idx) => (
               <div 
                 key={idx} 
-                className={`rounded-2xl p-6 shadow-sm flex flex-col justify-between h-40 relative overflow-hidden transition-all hover:shadow-md
+                className={`rounded-2xl p-6 shadow-sm flex flex-col justify-between h-32 md:h-40 relative overflow-hidden transition-all hover:shadow-md
                     ${kpi.isDark 
                         ? 'bg-gradient-to-br from-odoo-dark to-[#343a40] text-white border-none' 
                         : 'bg-white text-gray-800 border border-gray-200'
@@ -242,7 +239,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                             <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${kpi.isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                 {kpi.label}
                             </p>
-                            <h3 className="text-3xl font-bold tracking-tight">{kpi.value}</h3>
+                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight">{kpi.value}</h3>
                        </div>
                        <div className={`p-2 rounded-lg ${kpi.isDark ? 'bg-white/10 text-white' : 'bg-odoo-primary/10 text-odoo-primary'}`}>
                            {kpi.icon === 'DollarSign' && <DollarSign size={20} />}
@@ -492,7 +489,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
       </div>
 
       {/* Revenue Trend Chart */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hidden md:block">
           <div className="flex justify-between items-center mb-6">
               <div>
                   <h2 className="text-xl font-bold text-gray-800">Tendencia de Ventas</h2>

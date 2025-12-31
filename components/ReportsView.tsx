@@ -48,13 +48,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
       { id: 6, title: 'Cuentas por Cobrar', desc: 'Facturas pendientes de pago y antigüedad de deuda.', icon: DollarSign, color: 'text-red-600', bg: 'bg-red-50' },
   ];
 
-  // Reset data when switching reports
   useEffect(() => {
       setReportData([]);
       setError(null);
       setSearchTerm('');
       if (selectedReport && connection) {
-          fetchData(); // Auto-fetch on open
+          fetchData(); 
       }
   }, [selectedReport]);
 
@@ -100,7 +99,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
       let totalAmount = 0;
       let label = 'Monto Total';
 
-      // Logic to find the "money" column dynamically based on known keys
       const sample = reportData[0];
       if ('totalAmount' in sample) totalAmount = reportData.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
       else if ('totalValue' in sample) { totalAmount = reportData.reduce((acc, curr) => acc + (curr.totalValue || 0), 0); label = 'Valorizado Total'; }
@@ -113,19 +111,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
 
   const summary = getSummaryMetrics();
 
-  // --- Render Table Headers Helper ---
   const getHeaders = () => {
       if (reportData.length === 0) return [];
-      // Exclude complex objects or arrays from direct table view for cleaner UI
       return Object.keys(reportData[0]).filter(k => typeof reportData[0][k] !== 'object' || reportData[0][k] === null);
   };
 
-  // --- Filtered Data for Preview ---
   const filteredData = reportData.filter(row => 
       JSON.stringify(row).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // VIEW 1: GALLERY (GRID)
+  // VIEW 1: GALLERY
   if (!selectedReport) {
       return (
         <div className="space-y-6 animate-fade-in pb-10">
@@ -153,7 +148,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
                         disabled={!connection}
                         className="group bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-odoo-primary/30 transition-all text-left flex flex-col justify-between h-48 relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {/* Background Decor */}
                         <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full ${report.bg} transition-transform group-hover:scale-150`}></div>
                         
                         <div className="relative z-10">
@@ -175,11 +169,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
       );
   }
 
-  // VIEW 2: DETAIL / PREVIEW
+  // VIEW 2: DETAIL
   return (
       <div className="space-y-6 animate-fade-in h-full flex flex-col">
-          {/* Header Bar */}
-          <div className="bg-white p-3 md:p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+          {/* Header Bar - Responsive Stacking */}
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
               <div className="flex items-center gap-3 w-full xl:w-auto">
                   <button 
                     onClick={() => setSelectedReport(null)}
@@ -199,10 +193,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto items-stretch sm:items-center">
-                   {/* Date Controls (only for reports that need date ranges) */}
                    {selectedReport.id !== 3 && (
                        <div className="flex flex-col sm:flex-row items-center bg-gray-50 rounded-lg p-1 border border-gray-200 w-full sm:w-auto">
-                           <div className="flex items-center px-2 py-1 sm:py-0 border-b sm:border-b-0 sm:border-r border-gray-200 w-full sm:w-auto">
+                           <div className="flex items-center px-2 py-2 sm:py-0 border-b sm:border-b-0 sm:border-r border-gray-200 w-full sm:w-auto">
                                <Calendar size={14} className="text-gray-400 mr-2 shrink-0"/>
                                <input 
                                    type="date" 
@@ -211,8 +204,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
                                    className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-full sm:w-28"
                                />
                            </div>
-                           <div className="flex items-center px-2 py-1 sm:py-0 w-full sm:w-auto">
-                               <span className="text-gray-400 text-xs mr-2 shrink-0">a</span>
+                           <div className="flex items-center px-2 py-2 sm:py-0 w-full sm:w-auto">
+                               <span className="text-gray-400 text-xs mr-2 shrink-0 hidden sm:inline">a</span>
+                               <span className="text-gray-400 text-xs mr-2 shrink-0 sm:hidden">Hasta</span>
                                <input 
                                    type="date" 
                                    value={endDate}
@@ -226,7 +220,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
                    <button 
                        onClick={fetchData}
                        disabled={loading}
-                       className="flex justify-center items-center gap-2 bg-odoo-primary text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-odoo-primaryDark transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-50 w-full sm:w-auto"
+                       className="flex justify-center items-center gap-2 bg-odoo-primary text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-odoo-primaryDark transition-all shadow-sm active:scale-95 disabled:opacity-50 w-full sm:w-auto"
                    >
                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                        {loading ? 'Cargando...' : 'Actualizar'}
@@ -234,10 +228,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
               </div>
           </div>
 
-          {/* Metrics & Preview Area */}
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-              
-              {/* Summary Stats Bar */}
               {summary && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up">
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
@@ -261,10 +252,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
                   </div>
               )}
 
-              {/* Table Container */}
               <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col relative">
                   
-                  {/* Local Search Bar */}
                   <div className="p-3 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
                       <div className="relative w-full sm:w-64">
                           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -273,19 +262,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
                               placeholder="Filtrar resultados..." 
                               value={searchTerm}
                               onChange={(e) => setSearchTerm(e.target.value)}
-                              className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-odoo-primary outline-none"
+                              className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-odoo-primary outline-none"
                           />
                       </div>
                       <button 
                           onClick={handleExport}
                           disabled={reportData.length === 0}
-                          className="flex w-full sm:w-auto justify-center items-center gap-2 text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-md text-xs font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
+                          className="flex w-full sm:w-auto justify-center items-center gap-2 text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-md text-xs font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
                       >
                           <Download size={14} /> Exportar Excel
                       </button>
                   </div>
 
-                  {/* The Data Table */}
+                  {/* Horizontal Scroll wrapper for Table */}
                   <div className="flex-1 overflow-auto">
                       {loading ? (
                           <div className="h-full flex flex-col items-center justify-center text-gray-400 min-h-[200px]">
@@ -298,36 +287,37 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSessio
                               <p className="text-sm">No se encontraron datos para los filtros seleccionados.</p>
                           </div>
                       ) : (
-                          <table className="w-full text-xs text-left text-gray-600">
-                              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
-                                  <tr>
-                                      <th className="px-4 py-3 font-bold text-gray-500 w-12 text-center">#</th>
-                                      {getHeaders().map((header) => (
-                                          <th key={header} className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                              {header.replace(/([A-Z])/g, ' $1').trim()} {/* CamelCase to Title Case */}
-                                          </th>
-                                      ))}
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                  {filteredData.slice(0, 100).map((row, idx) => ( // Limit rendering for performance
-                                      <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
-                                          <td className="px-4 py-2 text-center text-gray-300 font-mono">{idx + 1}</td>
+                          <div className="inline-block min-w-full align-middle">
+                              <table className="min-w-full text-xs text-left text-gray-600">
+                                  <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                      <tr>
+                                          <th className="px-4 py-3 font-bold text-gray-500 w-12 text-center">#</th>
                                           {getHeaders().map((header) => (
-                                              <td key={header} className="px-4 py-2 whitespace-nowrap">
-                                                  {typeof row[header] === 'number' 
-                                                      ? row[header].toLocaleString() 
-                                                      : String(row[header] || '-')}
-                                              </td>
+                                              <th key={header} className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                                  {header.replace(/([A-Z])/g, ' $1').trim()}
+                                              </th>
                                           ))}
                                       </tr>
-                                  ))}
-                              </tbody>
-                          </table>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                      {filteredData.slice(0, 100).map((row, idx) => (
+                                          <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+                                              <td className="px-4 py-2 text-center text-gray-300 font-mono">{idx + 1}</td>
+                                              {getHeaders().map((header) => (
+                                                  <td key={header} className="px-4 py-2 whitespace-nowrap">
+                                                      {typeof row[header] === 'number' 
+                                                          ? row[header].toLocaleString() 
+                                                          : String(row[header] || '-')}
+                                                  </td>
+                                              ))}
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
                       )}
                   </div>
                   
-                  {/* Table Footer Limit Warning */}
                   {filteredData.length > 100 && (
                       <div className="bg-yellow-50 p-2 text-center text-[10px] text-yellow-700 font-medium border-t border-yellow-100">
                           Mostrando primeros 100 registros. Exporte a Excel para ver la data completa ({reportData.length} filas).
