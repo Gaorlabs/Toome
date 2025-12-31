@@ -4,8 +4,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area
 } from 'recharts';
-import { RefreshCw, ArrowUpRight, Store, Calendar, TrendingUp, Target, Package, Calculator, DollarSign, PieChart, CreditCard, Wallet, User, Lock, Unlock } from 'lucide-react';
-import { KPI, DashboardProps, SalesData, BranchKPI } from '../types';
+import { RefreshCw, ArrowUpRight, Store, Calendar, TrendingUp, Target, Package, Calculator, DollarSign, PieChart, CreditCard, Wallet, User, Lock, Unlock, Filter } from 'lucide-react';
+import { KPI, DashboardProps, SalesData, BranchKPI, DateRange } from '../types';
 import { fetchOdooRealTimeData } from '../services/odooBridge';
 import { MOCK_BRANCHES, MOCK_KPIS } from '../constants';
 
@@ -15,7 +15,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
   const [displayKpis, setDisplayKpis] = useState<KPI[]>(initialKpis);
   const [displayBranches, setDisplayBranches] = useState<BranchKPI[]>(initialBranches);
   const [displaySales, setDisplaySales] = useState<SalesData[]>(initialSales);
-  const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO'>('HOY'); // Default to HOY for real-time focus
+  
+  const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO' | 'CUSTOM'>('HOY');
+  const [customRange, setCustomRange] = useState<DateRange>({
+      start: new Date().toISOString().split('T')[0],
+      end: new Date().toISOString().split('T')[0]
+  });
 
   useEffect(() => {
       if (activeConnection) {
@@ -24,7 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
           setDisplayKpis(MOCK_KPIS);
           setDisplayBranches(MOCK_BRANCHES);
       }
-  }, [activeConnection, dateFilter]);
+  }, [activeConnection, dateFilter]); // Trigger on filter change
 
   const loadRealTimeData = async () => {
       if (!activeConnection) return;
@@ -39,7 +44,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
             allowedCompanyIds = userSession.clientData.allowedCompanyIds;
         }
 
-        const { salesData, branches, totalSales, totalMargin, totalItems } = await fetchOdooRealTimeData(activeConnection, allowedCompanyIds, allowedPosIds, dateFilter);
+        const { salesData, branches, totalSales, totalMargin, totalItems } = await fetchOdooRealTimeData(
+            activeConnection, 
+            allowedCompanyIds, 
+            allowedPosIds, 
+            dateFilter,
+            dateFilter === 'CUSTOM' ? customRange : undefined
+        );
 
         setDisplaySales(salesData);
         setDisplayBranches(branches);
@@ -81,27 +92,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
             </div>
         </div>
         
-        <div className="flex items-center gap-4 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
-             <div className="flex gap-1">
-                 {['HOY', 'MES', 'AÑO'].map(filter => (
-                     <button
-                        key={filter}
-                        onClick={() => setDateFilter(filter as any)}
-                        className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-                     >
-                         {filter}
-                     </button>
-                 ))}
-             </div>
-             <div className="h-6 w-px bg-gray-200"></div>
-             <button 
-                onClick={loadRealTimeData}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-gray-600 hover:text-odoo-primary transition-colors"
-             >
-                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                 <span>SINCRONIZAR</span>
-             </button>
+        <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-4 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
+                <div className="flex gap-1">
+                    {['HOY', 'MES', 'AÑO', 'CUSTOM'].map(filter => (
+                        <button
+                            key={filter}
+                            onClick={() => setDateFilter(filter as any)}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            {filter === 'CUSTOM' ? 'Personalizado' : filter}
+                        </button>
+                    ))}
+                </div>
+                <div className="h-6 w-px bg-gray-200"></div>
+                <button 
+                    onClick={loadRealTimeData}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-gray-600 hover:text-odoo-primary transition-colors"
+                >
+                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    <span>SINCRONIZAR</span>
+                </button>
+            </div>
+            
+            {/* Custom Range Picker */}
+            {dateFilter === 'CUSTOM' && (
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up">
+                    <span className="font-bold text-gray-500">Desde:</span>
+                    <input 
+                        type="date" 
+                        value={customRange.start}
+                        onChange={(e) => setCustomRange({...customRange, start: e.target.value})}
+                        className="border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-odoo-primary outline-none"
+                    />
+                    <span className="font-bold text-gray-500">Hasta:</span>
+                    <input 
+                        type="date" 
+                        value={customRange.end}
+                        onChange={(e) => setCustomRange({...customRange, end: e.target.value})}
+                        className="border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-odoo-primary outline-none"
+                    />
+                    <button 
+                        onClick={loadRealTimeData}
+                        className="bg-odoo-primary text-white px-2 py-1 rounded hover:bg-odoo-primaryDark"
+                    >
+                        Aplicar
+                    </button>
+                </div>
+            )}
         </div>
       </div>
 
@@ -142,7 +181,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                    <div className="flex items-center gap-1 mt-2">
                        <TrendingUp size={14} className={kpi.isDark ? 'text-green-400' : 'text-odoo-primary'} />
                        <span className={`text-xs font-medium ${kpi.isDark ? 'text-green-400' : 'text-odoo-primary'}`}>
-                           {dateFilter}
+                           {dateFilter === 'CUSTOM' ? 'Rango Personalizado' : dateFilter}
                        </span>
                    </div>
               </div>
@@ -197,7 +236,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ kpis: initialKpis, salesDa
                       <div className="p-6 flex-1 flex flex-col justify-center space-y-4">
                           <div className="flex justify-between items-end">
                                 <div>
-                                    <p className="text-xs text-gray-400 uppercase font-bold mb-1">Ventas ({dateFilter})</p>
+                                    <p className="text-xs text-gray-400 uppercase font-bold mb-1">Ventas</p>
                                     <p className="text-2xl font-bold text-gray-900">S/ {branch.sales.toLocaleString()}</p>
                                 </div>
                                 <div className="text-right">

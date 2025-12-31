@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Filter, Download, FileText, RefreshCw, Calendar } from 'lucide-react';
-import { SalesRegisterItem, UserSession } from '../types';
+import { SalesRegisterItem, UserSession, DateRange } from '../types';
 import { fetchSalesRegister } from '../services/odooBridge';
 import { OdooConnection } from '../types';
 
@@ -13,13 +13,18 @@ interface SalesViewProps {
 export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('Todos');
-  const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO'>('MES');
+  const [dateFilter, setDateFilter] = useState<'HOY' | 'MES' | 'AÑO' | 'CUSTOM'>('MES');
+  const [customRange, setCustomRange] = useState<DateRange>({
+      start: new Date().toISOString().split('T')[0],
+      end: new Date().toISOString().split('T')[0]
+  });
+
   const [sales, setSales] = useState<SalesRegisterItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
       loadData();
-  }, [connection, dateFilter]);
+  }, [connection, dateFilter]); // Reload when connection or filter type changes
 
   const loadData = async () => {
       setLoading(true);
@@ -34,7 +39,8 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
       const data = await fetchSalesRegister(
           connection || { connectionMode: 'MOCK' } as any, 
           dateFilter,
-          allowedCompanyIds
+          allowedCompanyIds,
+          dateFilter === 'CUSTOM' ? customRange : undefined
       );
       setSales(data);
       setLoading(false);
@@ -61,30 +67,57 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
           <p className="text-gray-500 text-sm">Registro de comprobantes sincronizado en tiempo real.</p>
         </div>
         
-        <div className="flex flex-col md:flex-row gap-3">
-             <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
-                 {['HOY', 'MES', 'AÑO'].map(filter => (
+        <div className="flex flex-col gap-3">
+             <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm self-end md:self-auto">
+                 {['HOY', 'MES', 'AÑO', 'CUSTOM'].map(filter => (
                      <button
                         key={filter}
                         onClick={() => setDateFilter(filter as any)}
                         className={`px-4 py-2 text-xs font-bold rounded-md transition-all ${dateFilter === filter ? 'bg-odoo-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
                      >
-                         {filter}
+                         {filter === 'CUSTOM' ? 'Personalizado' : filter}
                      </button>
                  ))}
              </div>
             
-            <button 
-                onClick={loadData}
-                disabled={loading}
-                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium disabled:opacity-50"
-            >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
-                <span>{loading ? 'Sincronizando...' : 'Actualizar'}</span>
-            </button>
-            <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm">
-                <Download size={16} /> PLE
-            </button>
+            {dateFilter === 'CUSTOM' && (
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-xs animate-slide-up self-end">
+                    <span className="font-bold text-gray-500">Desde:</span>
+                    <input 
+                        type="date" 
+                        value={customRange.start}
+                        onChange={(e) => setCustomRange({...customRange, start: e.target.value})}
+                        className="border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-odoo-primary outline-none"
+                    />
+                    <span className="font-bold text-gray-500">Hasta:</span>
+                    <input 
+                        type="date" 
+                        value={customRange.end}
+                        onChange={(e) => setCustomRange({...customRange, end: e.target.value})}
+                        className="border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-odoo-primary outline-none"
+                    />
+                    <button 
+                        onClick={loadData}
+                        className="bg-odoo-primary text-white px-2 py-1 rounded hover:bg-odoo-primaryDark"
+                    >
+                        Filtrar
+                    </button>
+                </div>
+            )}
+
+            <div className="flex gap-2 self-end">
+                <button 
+                    onClick={loadData}
+                    disabled={loading}
+                    className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 font-medium disabled:opacity-50"
+                >
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
+                    <span>{loading ? 'Sincronizando...' : 'Actualizar'}</span>
+                </button>
+                <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm">
+                    <Download size={16} /> PLE
+                </button>
+            </div>
         </div>
       </div>
 

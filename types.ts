@@ -154,6 +154,11 @@ export interface CalendarEvent {
   status: 'needsAction' | 'confirmed' | 'tentative' | 'cancelled';
 }
 
+export interface DateRange {
+  start: string; // YYYY-MM-DD
+  end: string;   // YYYY-MM-DD
+}
+
 // --- PERUVIAN SPECIFIC TYPES ---
 
 export interface SalesRegisterItem {
