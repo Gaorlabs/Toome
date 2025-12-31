@@ -1,5 +1,4 @@
 
-
 export interface KPI {
   label: string;
   value: string;
@@ -48,6 +47,9 @@ export interface InventoryItem {
   daysRemaining: number;
   status: 'Critical' | 'Warning' | 'Healthy';
   category: string;
+  location?: string;
+  cost: number;
+  totalValue: number; // Stock * Cost (Kardex Valorizado)
 }
 
 export interface CustomerSegment {
@@ -93,8 +95,15 @@ export interface ClientAccess {
   accessKey: string;
   assignedConnectionIds: string[]; 
   allowedCompanyIds: string[]; 
+  allowedPosIds?: number[]; 
   allowedModules: AppModule[]; 
   createdAt: string;
+}
+
+export interface PosConfig {
+    id: number;
+    name: string;
+    company_id: any[]; // [id, name]
 }
 
 export interface ConnectionConfig {
@@ -143,11 +152,52 @@ export interface CalendarEvent {
   status: 'needsAction' | 'confirmed' | 'tentative' | 'cancelled';
 }
 
+// --- PERUVIAN SPECIFIC TYPES ---
+
+export interface SalesRegisterItem {
+  id: string;
+  date: string;
+  documentType: 'Factura' | 'Boleta' | 'Nota Crédito' | 'Nota Débito';
+  series: string;
+  number: string;
+  clientName: string;
+  clientDocType: 'RUC' | 'DNI' | 'Otro';
+  clientDocNum: string;
+  currency: string;
+  baseAmount: number; // Valor Venta (Sin IGV)
+  igvAmount: number; // IGV
+  totalAmount: number; // Precio Venta
+  status: 'Emitido' | 'Anulado';
+  paymentState: 'Pagado' | 'No Pagado';
+}
+
+export interface PaymentMethodSummary {
+  method: string; // Yape, Plin, Efectivo, Visa
+  amount: number;
+  count: number;
+}
+
+export interface CashClosingReport {
+  sessionId: string;
+  posName: string;
+  cashierName: string;
+  openingDate: string;
+  closingDate: string | null;
+  openingBalance: number;
+  totalSales: number;
+  expectedCash: number;
+  countedCash: number;
+  difference: number;
+  state: 'Abierto' | 'Cerrando' | 'Cerrado';
+  payments: PaymentMethodSummary[];
+}
+
 export interface DashboardProps {
   kpis: KPI[];
   salesData: SalesData[];
   topProducts: ProductPerformance[];
   inventory: InventoryItem[];
-  branchKPIs: BranchKPI[]; // New: Data for Branch Cards
+  branchKPIs: BranchKPI[]; 
   activeConnection: OdooConnection | null;
+  userSession?: UserSession | null; 
 }

@@ -1,18 +1,19 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { InventoryView } from './components/InventoryView';
 import { ProductAnalysis } from './components/ProductAnalysis';
-import { CustomerView } from './components/CustomerView';
-import { AgendaModule } from './components/AgendaModule'; // New Import
+import { CustomerView } from './components/CustomerView'; 
+import { SalesView } from './components/SalesView'; 
+import { ReportsView } from './components/ReportsView'; 
+import { AgendaModule } from './components/AgendaModule';
 import { Login } from './components/Login';
 import { ClientManagement } from './components/ClientManagement';
 import { ConnectionManager } from './components/ConnectionManager';
 import { ViewMode, UserSession, ClientAccess, OdooConnection, OdooCompany } from './types';
 import { MOCK_KPIS, MOCK_SALES_DATA, MOCK_TOP_PRODUCTS, MOCK_INVENTORY, MOCK_CUSTOMERS, MOCK_BRANCHES } from './constants';
-import { Bell, Search, ChevronDown, Building, Menu, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Search, ChevronDown, Building, Menu, AlertTriangle } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 export default function App() {
@@ -35,7 +36,6 @@ export default function App() {
     if (!session) return [];
     if (session.role === 'ADMIN') return connections;
     if (session.role === 'CLIENT' && session.clientData) {
-      // Find connections where the user has at least one allowed company
       const allowedCompIds = session.clientData.allowedCompanyIds || [];
       return connections.filter(conn => 
         conn.companies && conn.companies.some(comp => allowedCompIds.includes(comp.id))
@@ -53,16 +53,6 @@ export default function App() {
         setSelectedConnection(null);
     }
   }, [availableConnections, selectedConnection]);
-
-  // Helper to count visible companies for the current user in the selected connection
-  const getVisibleCompanyCount = () => {
-    if (!selectedConnection || !session || !selectedConnection.companies) return 0;
-    if (session.role === 'ADMIN') return selectedConnection.companies.length;
-    if (session.role === 'CLIENT' && session.clientData) {
-        return selectedConnection.companies.filter(c => session.clientData!.allowedCompanyIds.includes(c.id)).length;
-    }
-    return 0;
-  };
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -92,6 +82,7 @@ export default function App() {
             accessKey: c.access_key,
             assignedConnectionIds: c.allowed_connection_ids,
             allowedCompanyIds: c.allowed_company_ids,
+            allowedPosIds: c.allowed_pos_ids || [], // Ensure field exists
             allowedModules: c.allowed_modules,
             createdAt: c.created_at
         }));
@@ -139,6 +130,7 @@ export default function App() {
             accessKey: clientRecord.access_key,
             assignedConnectionIds: clientRecord.allowed_connection_ids,
             allowedCompanyIds: clientRecord.allowed_company_ids,
+            allowedPosIds: clientRecord.allowed_pos_ids || [],
             allowedModules: clientRecord.allowed_modules,
             createdAt: clientRecord.created_at
         };
@@ -180,6 +172,14 @@ export default function App() {
     setCurrentView(ViewMode.DASHBOARD);
   };
 
+  const getErrorMessage = (e: any) => {
+    if (typeof e === 'string') return e;
+    if (e instanceof Error) return e.message;
+    if (e?.message) return e.message;
+    if (e?.error_description) return e.error_description;
+    try { return JSON.stringify(e); } catch { return 'Error desconocido'; }
+  };
+
   const handleCreateClient = async (newClient: Omit<ClientAccess, 'id' | 'createdAt'>) => {
     try {
         const { data, error } = await supabase.from('client_profiles').insert({
@@ -187,6 +187,7 @@ export default function App() {
             access_key: newClient.accessKey,
             allowed_connection_ids: newClient.assignedConnectionIds,
             allowed_company_ids: newClient.allowedCompanyIds,
+            allowed_pos_ids: newClient.allowedPosIds, // Save POS
             allowed_modules: newClient.allowedModules
         }).select();
 
@@ -199,15 +200,38 @@ export default function App() {
                 accessKey: created.access_key,
                 assignedConnectionIds: created.allowed_connection_ids,
                 allowedCompanyIds: created.allowed_company_ids,
+                allowedPosIds: created.allowed_pos_ids || [],
                 allowedModules: created.allowed_modules,
                 createdAt: created.created_at
              };
              setClients([...clients, mapped]);
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error creating client", e);
-        alert("Error al guardar cliente en base de datos.");
+        alert(`Error al guardar cliente en base de datos: ${getErrorMessage(e)}`);
     }
+  };
+
+  const handleUpdateClient = async (id: string, updates: Partial<ClientAccess>) => {
+      try {
+          // Prepare DB updates
+          const dbUpdates: any = {};
+          if (updates.name !== undefined) dbUpdates.name = updates.name;
+          if (updates.assignedConnectionIds !== undefined) dbUpdates.allowed_connection_ids = updates.assignedConnectionIds;
+          if (updates.allowedCompanyIds !== undefined) dbUpdates.allowed_company_ids = updates.allowedCompanyIds;
+          if (updates.allowedPosIds !== undefined) dbUpdates.allowed_pos_ids = updates.allowedPosIds;
+          if (updates.allowedModules !== undefined) dbUpdates.allowed_modules = updates.allowedModules;
+
+          const { error } = await supabase.from('client_profiles').update(dbUpdates).eq('id', id);
+          if (error) throw error;
+
+          // Update local state
+          setClients(clients.map(c => c.id === id ? { ...c, ...updates } : c));
+
+      } catch (e: any) {
+          console.error("Error updating client", e);
+          alert(`Error al actualizar cliente: ${getErrorMessage(e)}`);
+      }
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -215,9 +239,9 @@ export default function App() {
         const { error } = await supabase.from('client_profiles').delete().eq('id', id);
         if (error) throw error;
         setClients(clients.filter(c => c.id !== id));
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
-        alert("Error al eliminar cliente.");
+        alert(`Error al eliminar cliente: ${getErrorMessage(e)}`);
     }
   };
 
@@ -240,32 +264,32 @@ export default function App() {
               const newConn = { ...conn, id: created.id };
               setConnections([...connections, newConn]);
           }
-      } catch (e) {
+      } catch (e: any) {
           console.error(e);
-          alert("Error al guardar conexión.");
+          alert(`Error al guardar conexión: ${getErrorMessage(e)}`);
       }
   };
 
   const handleRemoveConnection = async (id: string) => {
-      try {
+       try {
         const { error } = await supabase.from('odoo_connections').delete().eq('id', id);
         if (error) throw error;
         setConnections(connections.filter(c => c.id !== id));
-      } catch(e) {
+      } catch(e: any) {
           console.error(e);
-          alert("Error al eliminar conexión.");
+          alert(`Error al eliminar conexión: ${getErrorMessage(e)}`);
       }
   };
 
   const handleUpdateConnectionStatus = async (id: string, status: 'CONNECTED' | 'ERROR', mode?: 'REAL' | 'MOCK', companies?: OdooCompany[]) => {
-      setConnections(connections.map(c => 
+       setConnections(connections.map(c => 
           c.id === id 
           ? { 
               ...c, 
               status, 
               connectionMode: mode, 
               lastCheck: new Date().toLocaleString(),
-              companies: companies || c.companies || [] // Update companies list if provided
+              companies: companies || c.companies || [] 
             } 
           : c
       ));
@@ -275,7 +299,6 @@ export default function App() {
           last_check: new Date().toISOString()
       };
 
-      // Only update metadata if we actually got companies back
       if (companies && companies.length > 0) {
           updatePayload.companies_metadata = companies;
       }
@@ -310,7 +333,7 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         
         {/* Top Header */}
-        <header className="h-16 flex items-center justify-between px-6 z-20 bg-white border-b border-gray-200">
+        <header className="h-16 flex items-center justify-between px-6 z-20 bg-white border-b border-gray-200 shadow-sm">
           
           {/* Left: Search & Connection Context */}
           <div className="flex items-center space-x-6">
@@ -350,9 +373,9 @@ export default function App() {
 
             {/* DEMO MODE BANNER for active connection */}
             {selectedConnection?.connectionMode === 'MOCK' && (
-                <div className="hidden md:flex items-center gap-2 bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 animate-pulse">
+                <div className="hidden md:flex items-center gap-2 bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">
                     <AlertTriangle size={12} />
-                    <span>MODO DEMO (Sin conexión Real)</span>
+                    <span>MODO DEMO</span>
                 </div>
             )}
           </div>
@@ -369,7 +392,7 @@ export default function App() {
                      </div>
                      <div className="hidden md:block text-left">
                          <p className="text-sm font-bold text-gray-800 leading-none mb-0.5">{session.name}</p>
-                         <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">{session.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
+                         <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{session.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
                      </div>
                      <ChevronDown size={14} className="text-gray-400" />
                  </button>
@@ -396,6 +419,7 @@ export default function App() {
                        inventory={MOCK_INVENTORY}
                        branchKPIs={MOCK_BRANCHES}
                        activeConnection={selectedConnection} 
+                       userSession={session} // Pass session to allow POS filtering
                    />
                )}
                {currentView === ViewMode.INVENTORY && (
@@ -408,13 +432,29 @@ export default function App() {
                    <AgendaModule connection={selectedConnection} />
                )}
                {currentView === ViewMode.CUSTOMERS && (
-                   <CustomerView customers={MOCK_CUSTOMERS} />
+                   <SalesView />
                )}
+               {currentView === ViewMode.REPORTS && (
+                   <ReportsView />
+               )}
+               {currentView === ViewMode.BRANCHES && (
+                   <Dashboard 
+                       kpis={MOCK_KPIS} 
+                       salesData={MOCK_SALES_DATA} 
+                       topProducts={MOCK_TOP_PRODUCTS}
+                       inventory={MOCK_INVENTORY}
+                       branchKPIs={MOCK_BRANCHES}
+                       activeConnection={selectedConnection} 
+                       userSession={session}
+                   />
+               )}
+
                {currentView === ViewMode.CLIENT_MANAGEMENT && session.role === 'ADMIN' && (
                   <ClientManagement 
                     clients={clients} 
                     connections={connections} 
                     onCreateClient={handleCreateClient}
+                    onUpdateClient={handleUpdateClient} // Pass update handler
                     onDeleteClient={handleDeleteClient}
                     onSimulateLogin={handleClientLogin}
                   />
@@ -426,13 +466,6 @@ export default function App() {
                     onRemoveConnection={handleRemoveConnection}
                     onUpdateStatus={handleUpdateConnectionStatus}
                   />
-               )}
-               {currentView === ViewMode.REPORTS && (
-                   <div className="flex flex-col items-center justify-center h-96 text-gray-400">
-                       <Building size={48} className="text-gray-300 mb-4" />
-                       <h3 className="text-lg font-bold text-gray-600">Módulo de Reportes</h3>
-                       <p>Seleccione un tipo de reporte para generar.</p>
-                   </div>
                )}
            </div>
         </main>
