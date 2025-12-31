@@ -252,7 +252,8 @@ export const fetchOdooRealTimeData = async (
         console.warn("Error loading global payments:", e);
     }
 
-    // --- 3. CHART & TOTALS ---
+    // --- 3. CHART & TOTALS (Robust Manual Aggregation) ---
+    // Instead of relying on read_group date grouping which can be flaky, we fetch orders and aggregate
     let totalSales = 0;
     let totalItems = 0;
     let salesData: SalesData[] = [];
@@ -271,28 +272,37 @@ export const fetchOdooRealTimeData = async (
             orderDomain.push(['config_id', 'in', configIds] as any);
         }
 
-        // B. Timeline Data for Chart
-        const salesByDateGroups = await client.readGroup(
-            uid, connection.apiKey, 
+        // Fetch raw order data for manual aggregation (more reliable for charts)
+        const rawOrders = await client.searchRead(
+            uid, connection.apiKey,
             'pos.order',
             orderDomain,
-            ['amount_total', 'date_order'], 
-            ['date_order:day'], // Standard Odoo grouping
-            { context } 
+            ['amount_total', 'date_order'],
+            { context, limit: 5000 } // Limit to prevent overload, 5k orders/day is high for typical POS
         );
         
-        if (Array.isArray(salesByDateGroups)) {
-            salesData = salesByDateGroups.map((group: any) => ({
-                date: group['date_order:day'] || group['date_order'] || 'N/A', // Fallback key
-                sales: group.amount_total || 0,
-                margin: (group.amount_total || 0) * 0.3,
-                transactions: group.date_order_count || 0
-            })).sort((a: any, b: any) => a.date.localeCompare(b.date));
-        }
+        if (Array.isArray(rawOrders)) {
+            // Aggregate by Day
+            const dailyMap: Record<string, { sales: number, count: number }> = {};
+            
+            rawOrders.forEach((order: any) => {
+                const date = order.date_order ? order.date_order.split(' ')[0] : 'Unknown';
+                if (!dailyMap[date]) dailyMap[date] = { sales: 0, count: 0 };
+                
+                dailyMap[date].sales += (order.amount_total || 0);
+                dailyMap[date].count += 1;
+                
+                totalSales += (order.amount_total || 0);
+                totalItems += 1;
+            });
 
-        // Recalculate global totals from timeline to ensure consistency
-        totalSales = salesData.reduce((sum, d) => sum + d.sales, 0);
-        totalItems = salesData.reduce((sum, d) => sum + d.transactions, 0);
+            salesData = Object.entries(dailyMap).map(([date, stats]) => ({
+                date: date,
+                sales: stats.sales,
+                margin: stats.sales * 0.3, // Mock margin as 30% for now
+                transactions: stats.count
+            })).sort((a, b) => a.date.localeCompare(b.date));
+        }
 
     } catch (e) {
         console.warn("Partial Error: Failed to load sales timeline", e);
@@ -336,12 +346,12 @@ export const fetchOdooRealTimeData = async (
     }
 
     // --- 5. DETAILED BOX INFO (Loop Infalible) ---
-    // Here we fetch total sales specifically for each box to fix "S/ 0" issue
     const detailPromises = configIds.map(async (confId: number) => {
          if (!branchesMap[confId]) return;
 
          try {
-             // 5.1 FETCH BOX SALES TOTAL (The Fix)
+             // 5.1 FETCH BOX SALES TOTAL (MANUAL SUM FIX)
+             // Using searchRead + sum ensures we get the real value if readGroup fails on the grouping key
              const boxTotalDomain = [
                  ['date_order', '>=', dateStartStr],
                  ['date_order', '<=', dateEndStr],
@@ -349,19 +359,22 @@ export const fetchOdooRealTimeData = async (
                  ['config_id', '=', confId]
              ];
              
-             const boxStats = await client.readGroup(
+             // Fetch simplified order list for this box
+             const boxOrders = await client.searchRead(
                 uid, connection.apiKey, 'pos.order',
                 boxTotalDomain,
-                ['amount_total'],
-                [], // No grouping, just sum
+                ['amount_total'], 
                 { context }
              );
 
-             if (boxStats && boxStats.length > 0) {
-                 branchesMap[confId].sales = boxStats[0].amount_total || 0;
-                 branchesMap[confId].transactionCount = boxStats[0].amount_total_count || boxStats[0].__count || 0;
-                 branchesMap[confId].margin = branchesMap[confId].sales * 0.30; 
-                 branchesMap[confId].profitability = branchesMap[confId].sales > 0 ? 30.0 : 0;
+             if (Array.isArray(boxOrders)) {
+                 const boxSum = boxOrders.reduce((sum, order: any) => sum + (order.amount_total || 0), 0);
+                 const boxCount = boxOrders.length;
+                 
+                 branchesMap[confId].sales = boxSum;
+                 branchesMap[confId].transactionCount = boxCount;
+                 branchesMap[confId].margin = boxSum * 0.30; 
+                 branchesMap[confId].profitability = boxSum > 0 ? 30.0 : 0;
              }
 
              // 5.2 Top Products per Box
