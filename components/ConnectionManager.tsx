@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { OdooConnection, OdooCompany } from '../types';
-import { Plus, Database, Globe, User, Key, CheckCircle, XCircle, Loader2, Trash2, Power, AlertTriangle, AlertOctagon, PlayCircle, ShieldCheck } from 'lucide-react';
+import { Plus, Database, Globe, User, Key, CheckCircle, XCircle, Loader2, Trash2, Power, AlertTriangle, AlertOctagon, PlayCircle, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { testOdooConnection } from '../services/odooBridge';
 
 interface ConnectionManagerProps {
@@ -65,6 +65,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
       }, true);
   };
 
+  const createFacturaClicConnection = () => {
+      addConnection({
+          name: 'Mi Tienda (FacturaClic)',
+          url: 'https://mitienda.facturaclic.pe/',
+          db: 'mitienda_base_ac',
+          user: 'soporte@facturaclic.pe',
+          apiKey: '3e77f817d6cc51db9ba2c503f8e86a8c0650329e'
+      }, false);
+  };
+
   const testConnection = async (connection: OdooConnection) => {
     setTesting(connection.id);
     setLastError(null);
@@ -92,8 +102,15 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
         </div>
         <div className="flex gap-2">
             <button 
+                onClick={createFacturaClicConnection}
+                className="bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg font-bold flex items-center space-x-2 transition-colors text-xs"
+            >
+                <ShoppingBag size={14} />
+                <span>Conectar FacturaClic</span>
+            </button>
+            <button 
                 onClick={createDemoConnection}
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors text-xs"
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors text-xs hidden sm:flex"
             >
                 <PlayCircle size={14} className="text-gray-400" />
                 <span>Crear Demo</span>
@@ -312,12 +329,20 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
                 <Database size={48} className="mx-auto text-gray-300 mb-4" />
                 <h3 className="text-lg font-medium text-gray-500">No hay conexiones configuradas</h3>
                 <p className="text-sm text-gray-400 mt-2">Agrega tu primera instancia Odoo para comenzar.</p>
-                <button 
-                    onClick={() => setShowForm(true)}
-                    className="mt-6 text-odoo-secondary font-bold hover:underline"
-                >
-                    + Agregar Conexión
-                </button>
+                <div className="flex justify-center gap-4 mt-6">
+                    <button 
+                        onClick={createFacturaClicConnection}
+                        className="text-indigo-600 font-bold hover:underline text-sm"
+                    >
+                        + Demo FacturaClic
+                    </button>
+                    <button 
+                        onClick={() => setShowForm(true)}
+                        className="text-odoo-secondary font-bold hover:underline text-sm"
+                    >
+                        + Conexión Personalizada
+                    </button>
+                </div>
             </div>
         )}
       </div>

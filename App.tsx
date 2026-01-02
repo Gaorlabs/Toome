@@ -11,12 +11,17 @@ import { AgendaModule } from './components/AgendaModule';
 import { Login } from './components/Login';
 import { ClientManagement } from './components/ClientManagement';
 import { ConnectionManager } from './components/ConnectionManager';
+import { StaffManagement } from './components/StaffManagement';
+import { PublicEmployeeView } from './components/PublicEmployeeView'; // Import new component
 import { ViewMode, UserSession, ClientAccess, OdooConnection, OdooCompany } from './types';
 import { MOCK_KPIS, MOCK_SALES_DATA, MOCK_TOP_PRODUCTS, MOCK_INVENTORY, MOCK_CUSTOMERS, MOCK_BRANCHES } from './constants';
 import { Search, ChevronDown, Building, Menu, AlertTriangle } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 export default function App() {
+  // Check for Public Link Query Params
+  const [publicToken, setPublicToken] = useState<string | null>(null);
+
   // Auth State
   const [session, setSession] = useState<UserSession | null>(null);
   const [loadingSession, setLoadingSession] = useState(false);
@@ -30,6 +35,15 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState<OdooConnection | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  useEffect(() => {
+      // Simple routing check
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (token) {
+          setPublicToken(token);
+      }
+  }, []);
 
   // LOGIC: Determine which connections are available to the current user based on allowed companies
   const availableConnections = React.useMemo(() => {
@@ -172,6 +186,7 @@ export default function App() {
     setCurrentView(ViewMode.DASHBOARD);
   };
 
+  // ... (Keep existing Create/Update/Delete Handlers)
   const getErrorMessage = (e: any) => {
     if (typeof e === 'string') return e;
     if (e instanceof Error) return e.message;
@@ -187,7 +202,7 @@ export default function App() {
             access_key: newClient.accessKey,
             allowed_connection_ids: newClient.assignedConnectionIds,
             allowed_company_ids: newClient.allowedCompanyIds,
-            allowed_pos_ids: newClient.allowedPosIds, // Save POS
+            allowed_pos_ids: newClient.allowedPosIds,
             allowed_modules: newClient.allowedModules
         }).select();
 
@@ -214,7 +229,6 @@ export default function App() {
 
   const handleUpdateClient = async (id: string, updates: Partial<ClientAccess>) => {
       try {
-          // Prepare DB updates
           const dbUpdates: any = {};
           if (updates.name !== undefined) dbUpdates.name = updates.name;
           if (updates.assignedConnectionIds !== undefined) dbUpdates.allowed_connection_ids = updates.assignedConnectionIds;
@@ -225,7 +239,6 @@ export default function App() {
           const { error } = await supabase.from('client_profiles').update(dbUpdates).eq('id', id);
           if (error) throw error;
 
-          // Update local state
           setClients(clients.map(c => c.id === id ? { ...c, ...updates } : c));
 
       } catch (e: any) {
@@ -306,6 +319,14 @@ export default function App() {
       await supabase.from('odoo_connections').update(updatePayload).eq('id', id);
   };
 
+  // --- RENDER LOGIC ---
+
+  // 1. PUBLIC VIEW
+  if (publicToken) {
+      return <PublicEmployeeView token={publicToken} />;
+  }
+
+  // 2. LOGIN
   if (!session) {
     return (
       <Login 
@@ -316,6 +337,7 @@ export default function App() {
     );
   }
 
+  // 3. MAIN APP
   return (
     <div className="flex h-screen overflow-hidden bg-[#F9FAFB]">
       {/* Sidebar */}
@@ -371,7 +393,7 @@ export default function App() {
                </div>
             </div>
 
-            {/* DEMO MODE BANNER for active connection */}
+            {/* DEMO MODE BANNER */}
             {selectedConnection?.connectionMode === 'MOCK' && (
                 <div className="hidden md:flex items-center gap-2 bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">
                     <AlertTriangle size={12} />
@@ -420,7 +442,7 @@ export default function App() {
                            inventory={MOCK_INVENTORY}
                            branchKPIs={MOCK_BRANCHES}
                            activeConnection={selectedConnection} 
-                           userSession={session} // Pass session to allow POS filtering
+                           userSession={session} 
                        />
                    )}
                    {currentView === ViewMode.INVENTORY && (
@@ -437,6 +459,9 @@ export default function App() {
                    )}
                    {currentView === ViewMode.REPORTS && (
                        <ReportsView connection={selectedConnection} userSession={session} />
+                   )}
+                   {currentView === ViewMode.STAFF && (
+                       <StaffManagement connection={selectedConnection} userSession={session} />
                    )}
                    {currentView === ViewMode.BRANCHES && (
                        <Dashboard 
@@ -455,7 +480,7 @@ export default function App() {
                         clients={clients} 
                         connections={connections} 
                         onCreateClient={handleCreateClient}
-                        onUpdateClient={handleUpdateClient} // Pass update handler
+                        onUpdateClient={handleUpdateClient} 
                         onDeleteClient={handleDeleteClient}
                         onSimulateLogin={handleClientLogin}
                       />

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Package, TrendingUp, BarChart2, Database, ChevronLeft, ShieldCheck, LogOut, ShoppingCart, Calendar, Store, Percent, FileText } from 'lucide-react';
+import { LayoutDashboard, Package, TrendingUp, BarChart2, Database, ChevronLeft, ShieldCheck, LogOut, ShoppingCart, Calendar, Store, Percent, FileText, Users } from 'lucide-react';
 import { ViewMode, UserRole, AppModule } from '../types';
 
 interface SidebarProps {
@@ -26,6 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
     { id: ViewMode.INVENTORY, label: 'Inventario', icon: Package, module: 'INVENTORY' as AppModule },
     { id: ViewMode.PRODUCTS, label: 'Rentabilidad Prod.', icon: TrendingUp, module: 'PRODUCTS' as AppModule },
     { id: ViewMode.AGENDA, label: 'Agenda', icon: Calendar, module: 'AGENDA' as AppModule },
+    { id: ViewMode.STAFF, label: 'Gestión Personal', icon: Users, module: 'STAFF' as AppModule },
   ];
 
   const isAllowed = (module: AppModule) => {

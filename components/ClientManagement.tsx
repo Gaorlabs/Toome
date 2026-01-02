@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ClientAccess, OdooConnection, AppModule, PosConfig } from '../types';
-import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Calendar, LogIn, Edit2, Store, AlertCircle, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Copy, Shield, Database, RefreshCw, CheckSquare, Square, Package, TrendingUp, ShoppingCart, FileText, LayoutDashboard, Calendar, LogIn, Edit2, Store, AlertCircle, AlertTriangle, ArrowRight, Users } from 'lucide-react';
 import { fetchPosConfigs } from '../services/odooBridge';
 
 interface ClientManagementProps {
@@ -182,6 +182,7 @@ export const ClientManagement: React.FC<ClientManagementProps> = ({ clients, con
     { id: 'SALES', label: 'Ventas / Cajas', icon: ShoppingCart },
     { id: 'PRODUCTS', label: 'Análisis Productos', icon: TrendingUp },
     { id: 'REPORTS', label: 'Reportes Avanzados', icon: FileText },
+    { id: 'STAFF', label: 'Gestión Personal', icon: Users },
   ];
 
   return (

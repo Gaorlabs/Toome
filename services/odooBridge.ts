@@ -1,4 +1,5 @@
-import { OdooConnection, CalendarEvent, OdooCompany, SalesData, InventoryItem, BranchKPI, PosConfig, SalesRegisterItem, CashClosingReport, PaymentMethodSummary, DateRange, PaymentSummary, DailyProductSummary, DocumentTypeSummary } from '../types';
+
+import { OdooConnection, CalendarEvent, OdooCompany, SalesData, InventoryItem, BranchKPI, PosConfig, SalesRegisterItem, CashClosingReport, PaymentMethodSummary, DateRange, PaymentSummary, DailyProductSummary, DocumentTypeSummary, Employee } from '../types';
 import { OdooClient } from './OdooRpcClient';
 import { MOCK_INVENTORY } from '../constants';
 
@@ -898,7 +899,93 @@ export const fetchInventoryWithAlerts = async (connection: OdooConnection, allow
         });
 
     } catch (e) {
-        console.error("Fetch Inventory Alerts Error", e);
+        console.error("Fetch Inventory Alerts Alert", e);
+        return [];
+    }
+};
+
+export const fetchEmployees = async (connection: OdooConnection, allowedCompanyIds?: string[]): Promise<Employee[]> => {
+    if (connection.connectionMode === 'MOCK') {
+        return [
+            { id: '1', name: 'Juan Perez', jobTitle: 'Cajero Principal', department: 'Ventas', status: 'active', workEmail: 'juan@toome.com', identificationId: '12345678', workPhone: '999888777', currentPos: 'Caja Principal' },
+            { id: '2', name: 'Maria Gomez', jobTitle: 'Vendedora', department: 'Piso', status: 'active', workEmail: 'maria@toome.com', identificationId: '87654321' },
+            { id: '3', name: 'Carlos Ruiz', jobTitle: 'Almacenero', department: 'Logística', status: 'active' },
+            { id: '4', name: 'Ana Lopez', jobTitle: 'Supervisora', department: 'Administración', status: 'active' }
+        ];
+    }
+
+    try {
+        const client = getClient(connection);
+        const uid = await client.authenticate(connection.user, connection.apiKey);
+        const context: any = {};
+        if (allowedCompanyIds) context.allowed_company_ids = allowedCompanyIds.map(Number);
+
+        // 1. Fetch Employees
+        const employees = await client.searchRead(
+            uid, connection.apiKey,
+            'hr.employee',
+            [],
+            ['name', 'job_title', 'department_id', 'work_email', 'work_phone', 'identification_id', 'birthday', 'gender', 'user_id'],
+            { context, limit: 100 }
+        );
+
+        if (!Array.isArray(employees)) return [];
+
+        // 2. Fetch Active POS Sessions to check Live Status
+        let activeSessions: any[] = [];
+        try {
+            activeSessions = await client.searchRead(
+                uid, connection.apiKey,
+                'pos.session',
+                [['state', 'in', ['opened', 'opening_control']]], // Only active sessions
+                ['user_id', 'config_id'],
+                { context }
+            );
+        } catch (e) {
+            console.warn("Could not fetch active POS sessions for status check", e);
+        }
+
+        // Map session user_id to config name
+        const userPosMap: Record<number, string> = {};
+        if (Array.isArray(activeSessions)) {
+            activeSessions.forEach((sess: any) => {
+                // user_id is [id, "Name"]
+                if (sess.user_id && Array.isArray(sess.user_id)) {
+                    const userId = sess.user_id[0];
+                    const posName = Array.isArray(sess.config_id) ? sess.config_id[1] : 'POS';
+                    userPosMap[userId] = posName;
+                }
+            });
+        }
+
+        return employees.map((emp: any) => {
+            // Check if employee's related user is in the active map
+            let currentPos: string | undefined = undefined;
+            if (emp.user_id && Array.isArray(emp.user_id)) {
+                const userId = emp.user_id[0];
+                if (userPosMap[userId]) {
+                    currentPos = userPosMap[userId];
+                }
+            }
+
+            return {
+                id: emp.id.toString(),
+                name: emp.name,
+                jobTitle: emp.job_title || 'Sin Cargo',
+                department: Array.isArray(emp.department_id) ? emp.department_id[1] : 'General',
+                status: 'active',
+                workEmail: emp.work_email,
+                workPhone: emp.work_phone,
+                identificationId: emp.identification_id,
+                birthday: emp.birthday,
+                gender: emp.gender === 'male' ? 'Masculino' : emp.gender === 'female' ? 'Femenino' : emp.gender,
+                odooUserId: Array.isArray(emp.user_id) ? emp.user_id[0] : undefined,
+                currentPos: currentPos // Attached live status
+            };
+        });
+
+    } catch (e) {
+        console.error("Error fetching employees:", e);
         return [];
     }
 };

@@ -108,11 +108,12 @@ export enum ViewMode {
   REPORTS = 'REPORTS',
   CLIENT_MANAGEMENT = 'CLIENT_MANAGEMENT',
   CONNECTION_MANAGEMENT = 'CONNECTION_MANAGEMENT',
-  AGENDA = 'AGENDA'
+  AGENDA = 'AGENDA',
+  STAFF = 'STAFF'
 }
 
 // Permissions Types
-export type AppModule = 'DASHBOARD' | 'INVENTORY' | 'PRODUCTS' | 'SALES' | 'AGENDA' | 'REPORTS';
+export type AppModule = 'DASHBOARD' | 'INVENTORY' | 'PRODUCTS' | 'SALES' | 'AGENDA' | 'REPORTS' | 'STAFF';
 
 export interface ClientAccess {
   id: string;
@@ -180,6 +181,71 @@ export interface CalendarEvent {
 export interface DateRange {
   start: string; // YYYY-MM-DD
   end: string;   // YYYY-MM-DD
+}
+
+// --- STAFF / EMPLOYEES TYPES ---
+
+export interface Employee {
+  id: string;
+  name: string;
+  jobTitle: string;
+  department: string;
+  status: 'active' | 'inactive';
+  workEmail?: string;
+  workPhone?: string; // Odoo work phone
+  image?: string; 
+  
+  // Odoo User Link
+  odooUserId?: number; // Para vincular con pos.session
+
+  // Live Status (Calculated)
+  currentPos?: string; // Nombre del POS si está logueado
+
+  // --- Extended Fields (Stored in Supabase 'employee_profiles') ---
+  identificationId?: string; // DNI
+  personalEmail?: string;
+  personalPhone?: string; // Teléfono personal/celular
+  address?: string;
+  birthDate?: string;
+  photoUrl?: string; // Foto personalizada
+  publicToken?: string; // Token para vista pública
+  
+  // Normativa Peruana
+  pensionSystem?: string; // AFP / ONP
+  bankName?: string;
+  bankAccount?: string; // CCI
+  emergencyContactName?: string;
+  emergencyContactPhone?: string; // Teléfono familiar emergencia
+
+  // Compensación
+  salaryBase?: number;
+  salaryCommission?: number; // Monto o porcentaje estimado
+  hasFamilyAllowance?: boolean; // Asignación Familiar
+}
+
+export interface PayrollRow {
+    employeeId: string;
+    employeeName: string;
+    dni: string;
+    system: string; // ONP/AFP
+    baseSalary: number;
+    familyAllowance: number; // 102.50 or 0
+    commissions: number; // Editable
+    totalIncome: number; // Bruto
+    deductionPension: number; // ~13% or 11.7%
+    netPay: number; // Neto
+    employerEssalud: number; // 9%
+}
+
+export interface WorkShift {
+  id?: string; // Supabase ID
+  employeeId: string;
+  employeeName: string;
+  day: string; // YYYY-MM-DD
+  shift: 'MORNING' | 'AFTERNOON' | 'FULL' | 'REST';
+  startTime?: string; // HH:mm
+  endTime?: string; // HH:mm
+  location?: string; // Store/Branch name
 }
 
 // --- PERUVIAN SPECIFIC TYPES ---
