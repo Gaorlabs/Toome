@@ -75,6 +75,16 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
       }, false);
   };
 
+  const createVidaConnection = () => {
+      addConnection({
+          name: 'Vida (FacturaClic)',
+          url: 'https://vida.facturaclic.pe/',
+          db: 'vida_master',
+          user: 'soporte@facturaclic.pe',
+          apiKey: '7a823daf061832dd8f01876a714da94f7e9c9355'
+      }, false);
+  };
+
   const testConnection = async (connection: OdooConnection) => {
     setTesting(connection.id);
     setLastError(null);
@@ -100,13 +110,20 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
           <h2 className="text-2xl font-bold text-gray-800">Conexiones Odoo</h2>
           <p className="text-gray-500 text-sm">Gestiona tus instancias ERP para alimentar el dashboard.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap md:flex-nowrap">
             <button 
                 onClick={createFacturaClicConnection}
                 className="bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg font-bold flex items-center space-x-2 transition-colors text-xs"
             >
                 <ShoppingBag size={14} />
-                <span>Conectar FacturaClic</span>
+                <span>FacturaClic</span>
+            </button>
+            <button 
+                onClick={createVidaConnection}
+                className="bg-green-50 border border-green-200 hover:bg-green-100 text-green-700 px-4 py-2 rounded-lg font-bold flex items-center space-x-2 transition-colors text-xs"
+            >
+                <ShoppingBag size={14} />
+                <span>Vida</span>
             </button>
             <button 
                 onClick={createDemoConnection}

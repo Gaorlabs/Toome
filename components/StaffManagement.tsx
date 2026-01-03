@@ -375,14 +375,14 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
               </div>
               <div className="p-2 bg-green-50 text-green-600 rounded-lg"><Monitor size={20} /></div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between hidden md:flex">
               <div>
                   <p className="text-xs font-bold text-gray-500 uppercase">Turnos Semanales</p>
                   <p className="text-2xl font-bold text-gray-800">{shifts.length}</p>
               </div>
               <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Calendar size={20} /></div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between hidden md:flex">
               <div>
                   <p className="text-xs font-bold text-gray-500 uppercase">Planilla (Est.)</p>
                   <p className="text-2xl font-bold text-gray-800">
@@ -395,7 +395,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
 
       {/* VIEW: TEAM LIST */}
       {activeTab === 'TEAM' && (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-full md:h-auto">
                {/* Toolbar */}
                <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
                   <div className="relative w-full sm:w-64">
@@ -411,15 +411,15 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                   <div className="flex gap-2 w-full sm:w-auto">
                         <button 
                             onClick={loadEmployees}
-                            className="flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-gray-50 transition-colors"
+                            className="flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-gray-50 transition-colors w-full sm:w-auto"
                         >
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Sincronizar
                         </button>
                   </div>
               </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto">
+              {/* Table - Desktop */}
+              <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm text-left text-gray-600">
                       <thead className="bg-gray-50 text-xs text-gray-500 uppercase font-bold">
                           <tr>
@@ -493,6 +493,72 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                       </tbody>
                   </table>
               </div>
+
+              {/* Cards - Mobile (Kanban Style) */}
+              <div className="md:hidden bg-gray-50 p-4 space-y-3">
+                  {filteredEmployees.map((emp) => (
+                      <div key={emp.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => handleOpenProfile(emp)}>
+                          {/* Header: Avatar + Name + Status */}
+                          <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                  {emp.photoUrl ? (
+                                      <img src={emp.photoUrl} alt={emp.name} className="w-12 h-12 rounded-full object-cover border border-gray-100 shadow-sm" />
+                                  ) : (
+                                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-lg border border-gray-200">
+                                          {emp.name.substring(0, 2).toUpperCase()}
+                                      </div>
+                                  )}
+                                  <div>
+                                      <span className="font-bold text-gray-900 block text-base">{emp.name}</span>
+                                      <span className="text-xs text-gray-500 block">{emp.jobTitle}</span>
+                                  </div>
+                              </div>
+                              {/* Status Dot */}
+                              <div className="flex flex-col items-end gap-1">
+                                  {emp.currentPos ? (
+                                      <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm ring-2 ring-green-100"></div>
+                                  ) : (
+                                      <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                                  )}
+                              </div>
+                          </div>
+                          
+                          {/* Body: Key Info Grid */}
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                              <div>
+                                  <span className="block font-bold text-gray-400 text-[10px] uppercase mb-0.5">DNI</span>
+                                  <span className="font-medium">{emp.identificationId || 'Sin registrar'}</span>
+                              </div>
+                              <div>
+                                  <span className="block font-bold text-gray-400 text-[10px] uppercase mb-0.5">Celular</span>
+                                  <span className="font-medium">{emp.personalPhone || 'Sin registrar'}</span>
+                              </div>
+                              <div className="col-span-2 border-t border-gray-200 mt-1 pt-1 flex justify-between items-center">
+                                  <span className="font-bold text-gray-400 text-[10px] uppercase">Estado</span>
+                                  {emp.currentPos ? (
+                                      <span className="text-green-700 font-bold bg-green-100 px-2 py-0.5 rounded text-[10px]">
+                                          En {emp.currentPos}
+                                      </span>
+                                  ) : (
+                                      <span className="text-gray-400 font-medium text-[10px]">Desconectado</span>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* Footer: Actions */}
+                          <div className="flex justify-end pt-1">
+                              <button className="text-odoo-primary text-xs font-bold flex items-center gap-1 bg-odoo-primary/5 px-3 py-1.5 rounded-full">
+                                  Ver Ficha Completa <ChevronRight size={14}/>
+                              </button>
+                          </div>
+                      </div>
+                  ))}
+                  {filteredEmployees.length === 0 && (
+                      <div className="text-center py-8 text-gray-400 text-sm">
+                          No se encontraron empleados.
+                      </div>
+                  )}
+              </div>
           </div>
       )}
 
@@ -513,11 +579,11 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                        >
                            <RefreshCw size={14} className={loadingShifts ? 'animate-spin' : ''}/>
                        </button>
-                       <div className="flex items-center gap-1 text-xs">
+                       <div className="hidden md:flex items-center gap-1 text-xs">
                            <div className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></div>
                            <span>Mañana</span>
                        </div>
-                       <div className="flex items-center gap-1 text-xs">
+                       <div className="hidden md:flex items-center gap-1 text-xs">
                            <div className="w-3 h-3 bg-indigo-100 border border-indigo-300 rounded"></div>
                            <span>Tarde</span>
                        </div>
@@ -525,14 +591,14 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
               </div>
 
               {/* Schedule Grid */}
-              <div className="grid grid-cols-8 border border-gray-200 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-8 border border-gray-200 rounded-lg overflow-hidden overflow-x-auto min-w-[600px]">
                    {/* Header Row */}
-                   <div className="bg-gray-50 p-4 border-b border-r border-gray-200 font-bold text-xs text-gray-500 text-center flex items-center justify-center">
+                   <div className="bg-gray-50 p-4 border-b border-r border-gray-200 font-bold text-xs text-gray-500 text-center flex items-center justify-center sticky left-0 z-10">
                        EMPLEADO
                    </div>
                    {weekDates.map((date, i) => (
-                       <div key={i} className="bg-gray-50 p-2 border-b border-gray-200 font-bold text-xs text-gray-500 text-center">
-                           <div className="uppercase">{daysOfWeek[date.getDay() === 0 ? 6 : date.getDay() - 1]}</div>
+                       <div key={i} className="bg-gray-50 p-2 border-b border-gray-200 font-bold text-xs text-gray-500 text-center min-w-[60px]">
+                           <div className="uppercase">{daysOfWeek[date.getDay() === 0 ? 6 : date.getDay() - 1].substring(0, 3)}</div>
                            <div className="text-gray-400 font-normal">{date.getDate()}</div>
                        </div>
                    ))}
@@ -540,7 +606,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                    {/* Employee Rows */}
                    {filteredEmployees.map(emp => (
                        <React.Fragment key={emp.id}>
-                           <div className="p-3 border-r border-b border-gray-200 flex items-center gap-2 bg-white">
+                           <div className="p-3 border-r border-b border-gray-200 flex items-center gap-2 bg-white sticky left-0 z-10">
                                {emp.photoUrl ? (
                                    <img src={emp.photoUrl} className="w-6 h-6 rounded-full object-cover" alt="" />
                                ) : (
@@ -709,6 +775,11 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
       )}
 
       {/* MODAL: SHIFT MANAGER */}
+      {/* ... (Same modal code) ... */}
+      {/* MODAL: EMPLOYEE PROFILE (FICHA) */}
+      {/* ... (Same modal code) ... */}
+      
+      {/* ... Re-insert Modals from previous code ... */}
       {shiftModalOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-slide-up">
@@ -775,7 +846,6 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
           </div>
       )}
 
-      {/* MODAL: EMPLOYEE PROFILE (FICHA) */}
       {selectedEmployee && (
           <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
               <div className="bg-white w-full md:w-[500px] h-full shadow-2xl animate-slide-up md:animate-none md:transition-transform p-0 overflow-y-auto">

@@ -14,9 +14,9 @@ import { ClientManagement } from './components/ClientManagement';
 import { ConnectionManager } from './components/ConnectionManager';
 import { StaffManagement } from './components/StaffManagement';
 import { PublicEmployeeView } from './components/PublicEmployeeView'; // Import new component
-import { ViewMode, UserSession, ClientAccess, OdooConnection, OdooCompany } from './types';
+import { ViewMode, UserSession, ClientAccess, OdooConnection, OdooCompany, AppModule } from './types';
 import { MOCK_KPIS, MOCK_SALES_DATA, MOCK_TOP_PRODUCTS, MOCK_INVENTORY, MOCK_CUSTOMERS, MOCK_BRANCHES } from './constants';
-import { Search, ChevronDown, Building, Menu, AlertTriangle } from 'lucide-react';
+import { Search, ChevronDown, Building, Menu, AlertTriangle, Lock } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 
 export default function App() {
@@ -68,6 +68,14 @@ export default function App() {
         setSelectedConnection(null);
     }
   }, [availableConnections, selectedConnection]);
+
+  // Centralized Permission Checker
+  const hasAccess = (module: AppModule): boolean => {
+      if (!session) return false;
+      if (session.role === 'ADMIN') return true;
+      const allowed = session.clientData?.allowedModules || [];
+      return allowed.includes(module);
+  };
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -139,6 +147,9 @@ export default function App() {
         const clientRecord = data.client;
         const connectionRecords = data.connections || [];
 
+        // Ensure allowedModules is an array
+        const allowedModules: AppModule[] = Array.isArray(clientRecord.allowed_modules) ? clientRecord.allowed_modules : [];
+
         const mappedClient: ClientAccess = {
             id: clientRecord.id,
             name: clientRecord.name,
@@ -146,7 +157,7 @@ export default function App() {
             assignedConnectionIds: clientRecord.allowed_connection_ids,
             allowedCompanyIds: clientRecord.allowed_company_ids,
             allowedPosIds: clientRecord.allowed_pos_ids || [],
-            allowedModules: clientRecord.allowed_modules,
+            allowedModules: allowedModules,
             createdAt: clientRecord.created_at
         };
 
@@ -165,12 +176,23 @@ export default function App() {
         setClients([mappedClient]);
         setConnections(mappedConnections);
 
+        // INTELLIGENT REDIRECT: Set initial view based on permissions
+        let initialView = ViewMode.DASHBOARD;
+        if (allowedModules.includes('DASHBOARD')) initialView = ViewMode.DASHBOARD;
+        else if (allowedModules.includes('SALES')) initialView = ViewMode.CUSTOMERS;
+        else if (allowedModules.includes('INVENTORY')) initialView = ViewMode.INVENTORY;
+        else if (allowedModules.includes('STAFF')) initialView = ViewMode.STAFF;
+        else if (allowedModules.includes('REPORTS')) initialView = ViewMode.REPORTS;
+        else if (allowedModules.includes('AGENDA')) initialView = ViewMode.AGENDA;
+        else if (allowedModules.includes('PRODUCTS')) initialView = ViewMode.PRODUCTS;
+
+        setCurrentView(initialView);
+
         setSession({
             role: 'CLIENT',
             name: mappedClient.name,
             clientData: mappedClient
         });
-        setCurrentView(ViewMode.DASHBOARD);
 
     } catch (e) {
         console.error(e);
@@ -187,15 +209,7 @@ export default function App() {
     setCurrentView(ViewMode.DASHBOARD);
   };
 
-  // ... (Keep existing Create/Update/Delete Handlers)
-  const getErrorMessage = (e: any) => {
-    if (typeof e === 'string') return e;
-    if (e instanceof Error) return e.message;
-    if (e?.message) return e.message;
-    if (e?.error_description) return e.error_description;
-    try { return JSON.stringify(e); } catch { return 'Error desconocido'; }
-  };
-
+  // ... (Create/Update/Delete Handlers omitted for brevity, identical to previous) ...
   const handleCreateClient = async (newClient: Omit<ClientAccess, 'id' | 'createdAt'>) => {
     try {
         const { data, error } = await supabase.from('client_profiles').insert({
@@ -224,7 +238,7 @@ export default function App() {
         }
     } catch (e: any) {
         console.error("Error creating client", e);
-        alert(`Error al guardar cliente en base de datos: ${getErrorMessage(e)}`);
+        alert(`Error al guardar cliente`);
     }
   };
 
@@ -244,7 +258,7 @@ export default function App() {
 
       } catch (e: any) {
           console.error("Error updating client", e);
-          alert(`Error al actualizar cliente: ${getErrorMessage(e)}`);
+          alert(`Error al actualizar cliente`);
       }
   };
 
@@ -255,7 +269,7 @@ export default function App() {
         setClients(clients.filter(c => c.id !== id));
     } catch (e: any) {
         console.error(e);
-        alert(`Error al eliminar cliente: ${getErrorMessage(e)}`);
+        alert(`Error al eliminar cliente`);
     }
   };
 
@@ -280,7 +294,7 @@ export default function App() {
           }
       } catch (e: any) {
           console.error(e);
-          alert(`Error al guardar conexión: ${getErrorMessage(e)}`);
+          alert(`Error al guardar conexión`);
       }
   };
 
@@ -291,7 +305,7 @@ export default function App() {
         setConnections(connections.filter(c => c.id !== id));
       } catch(e: any) {
           console.error(e);
-          alert(`Error al eliminar conexión: ${getErrorMessage(e)}`);
+          alert(`Error al eliminar conexión`);
       }
   };
 
@@ -343,6 +357,7 @@ export default function App() {
     <div className="flex h-screen overflow-hidden bg-[#F9FAFB]">
       {/* Sidebar (Desktop Only) */}
       <Sidebar 
+        key={`sidebar-${session.role}-${JSON.stringify(session.clientData?.allowedModules)}`}
         currentView={currentView} 
         onNavigate={setCurrentView} 
         collapsed={sidebarCollapsed}
@@ -360,8 +375,6 @@ export default function App() {
           
           {/* Left: Connection Context */}
           <div className="flex items-center space-x-6">
-            {/* Removed Hamburger Menu for Mobile since we have bottom nav now */}
-            
             <div className="relative group">
                <button className="flex items-center space-x-3 text-gray-700 hover:text-odoo-primary transition-colors font-medium text-sm">
                    <div className="p-1.5 bg-gray-100 rounded-lg">
@@ -429,11 +442,12 @@ export default function App() {
           </div>
         </header>
 
-        {/* Dynamic Content View with mobile bottom padding */}
+        {/* Dynamic Content View - WITH STRICT PROTECTION */}
         <main className="flex-1 overflow-y-auto bg-[#F9FAFB] flex flex-col pb-20 md:pb-0">
            <div className="flex-1 p-4 md:p-6">
                <div className="max-w-[1600px] mx-auto">
-                   {currentView === ViewMode.DASHBOARD && (
+                   
+                   {currentView === ViewMode.DASHBOARD && hasAccess('DASHBOARD') && (
                        <Dashboard 
                            kpis={MOCK_KPIS} 
                            salesData={MOCK_SALES_DATA} 
@@ -444,25 +458,25 @@ export default function App() {
                            userSession={session} 
                        />
                    )}
-                   {currentView === ViewMode.INVENTORY && (
+                   {currentView === ViewMode.INVENTORY && hasAccess('INVENTORY') && (
                        <InventoryView connection={selectedConnection} userSession={session} />
                    )}
-                   {currentView === ViewMode.PRODUCTS && (
+                   {currentView === ViewMode.PRODUCTS && hasAccess('PRODUCTS') && (
                        <ProductAnalysis products={MOCK_TOP_PRODUCTS} />
                    )}
-                   {currentView === ViewMode.AGENDA && (
+                   {currentView === ViewMode.AGENDA && hasAccess('AGENDA') && (
                        <AgendaModule connection={selectedConnection} />
                    )}
-                   {currentView === ViewMode.CUSTOMERS && (
+                   {currentView === ViewMode.CUSTOMERS && hasAccess('SALES') && (
                        <SalesView connection={selectedConnection} userSession={session} />
                    )}
-                   {currentView === ViewMode.REPORTS && (
+                   {currentView === ViewMode.REPORTS && hasAccess('REPORTS') && (
                        <ReportsView connection={selectedConnection} userSession={session} />
                    )}
-                   {currentView === ViewMode.STAFF && (
+                   {currentView === ViewMode.STAFF && hasAccess('STAFF') && (
                        <StaffManagement connection={selectedConnection} userSession={session} />
                    )}
-                   {currentView === ViewMode.BRANCHES && (
+                   {currentView === ViewMode.BRANCHES && hasAccess('SALES') && (
                        <Dashboard 
                            kpis={MOCK_KPIS} 
                            salesData={MOCK_SALES_DATA} 
@@ -474,6 +488,7 @@ export default function App() {
                        />
                    )}
 
+                   {/* Admin Views */}
                    {currentView === ViewMode.CLIENT_MANAGEMENT && session.role === 'ADMIN' && (
                       <ClientManagement 
                         clients={clients} 
@@ -492,6 +507,23 @@ export default function App() {
                         onUpdateStatus={handleUpdateConnectionStatus}
                       />
                    )}
+
+                   {/* ACCESS DENIED FALLBACK */}
+                   {((session.role === 'CLIENT' && !hasAccess('DASHBOARD') && currentView === ViewMode.DASHBOARD) || 
+                     (currentView !== ViewMode.CLIENT_MANAGEMENT && currentView !== ViewMode.CONNECTION_MANAGEMENT && !hasAccess(
+                         currentView === ViewMode.BRANCHES || currentView === ViewMode.CUSTOMERS ? 'SALES' :
+                         currentView === ViewMode.INVENTORY ? 'INVENTORY' :
+                         currentView === ViewMode.PRODUCTS ? 'PRODUCTS' :
+                         currentView === ViewMode.AGENDA ? 'AGENDA' :
+                         currentView === ViewMode.REPORTS ? 'REPORTS' :
+                         currentView === ViewMode.STAFF ? 'STAFF' : 'DASHBOARD'
+                     ))) && (
+                       <div className="flex flex-col items-center justify-center h-[50vh] text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200">
+                           <Lock size={48} className="text-gray-300 mb-4" />
+                           <h2 className="text-xl font-bold text-gray-700">Acceso Restringido</h2>
+                           <p className="text-gray-500 mt-2">No tienes permisos para ver este módulo.</p>
+                       </div>
+                   )}
                </div>
            </div>
            
@@ -503,6 +535,7 @@ export default function App() {
 
         {/* Mobile Bottom Navigation (Visible only on mobile) */}
         <MobileNavigation 
+            key={`mobilenav-${session.role}-${JSON.stringify(session.clientData?.allowedModules)}`}
             currentView={currentView}
             onNavigate={setCurrentView}
             userRole={session.role}

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewMode, UserRole, AppModule } from '../types';
 import { LayoutDashboard, Package, ShoppingCart, Menu, X, Calendar, FileText, Users, TrendingUp, ShieldCheck, Database, LogOut, Store, Home } from 'lucide-react';
 
@@ -14,24 +14,23 @@ interface MobileNavigationProps {
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentView, onNavigate, userRole, allowedModules, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const isAllowed = (module: AppModule) => {
+  // Helper to safely check permissions
+  const hasAccess = (targetModule: AppModule) => {
       if (userRole === 'ADMIN') return true;
-      if (userRole === 'CLIENT' && allowedModules) {
-        return allowedModules.includes(module);
-      }
-      return false;
+      if (!allowedModules || !Array.isArray(allowedModules)) return false;
+      return allowedModules.includes(targetModule);
   };
 
-  // Primary Tabs (Always visible in bottom bar)
+  // Primary Tabs (Bottom Bar) - Mapped explicitly
   const mainTabs = [
     { id: ViewMode.DASHBOARD, label: 'Inicio', icon: Home, module: 'DASHBOARD' as AppModule },
     { id: ViewMode.CUSTOMERS, label: 'Ventas', icon: ShoppingCart, module: 'SALES' as AppModule },
     { id: ViewMode.INVENTORY, label: 'Stock', icon: Package, module: 'INVENTORY' as AppModule },
   ];
 
-  // Secondary Menu Items (In the drawer)
+  // Secondary Menu Items (Drawer) - Mapped explicitly
   const menuItems = [
-    { id: ViewMode.BRANCHES, label: 'Cajas y Sedes', icon: Store, module: 'DASHBOARD' as AppModule },
+    { id: ViewMode.BRANCHES, label: 'Cajas y Sedes', icon: Store, module: 'SALES' as AppModule }, // Changed to SALES to match Sidebar
     { id: ViewMode.AGENDA, label: 'Agenda', icon: Calendar, module: 'AGENDA' as AppModule },
     { id: ViewMode.PRODUCTS, label: 'Rentabilidad', icon: TrendingUp, module: 'PRODUCTS' as AppModule },
     { id: ViewMode.REPORTS, label: 'Reportes', icon: FileText, module: 'REPORTS' as AppModule },
@@ -48,12 +47,16 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentView,
       setIsMenuOpen(false);
   };
 
+  // Pre-filter items to ensure render consistency
+  const visibleMainTabs = mainTabs.filter(t => hasAccess(t.module));
+  const visibleMenuItems = menuItems.filter(i => hasAccess(i.module));
+
   return (
     <>
       {/* Bottom Bar - Fixed */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe shadow-lg">
         <div className="flex justify-around items-center h-16">
-          {mainTabs.filter(t => isAllowed(t.module)).map(tab => (
+          {visibleMainTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => handleNav(tab.id)}
@@ -90,21 +93,27 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentView,
            <div className="p-6 space-y-8 overflow-y-auto flex-1 pb-24">
                {/* Modules Grid */}
                <div>
-                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Módulos Operativos</h3>
-                   <div className="grid grid-cols-2 gap-4">
-                       {menuItems.filter(i => isAllowed(i.module)).map(item => (
-                           <button
-                             key={item.id}
-                             onClick={() => handleNav(item.id)}
-                             className={`flex flex-col items-center p-5 bg-white border rounded-2xl shadow-sm active:scale-95 transition-all ${currentView === item.id ? 'border-odoo-primary ring-2 ring-odoo-primary/20' : 'border-gray-100'}`}
-                           >
-                               <div className={`p-3.5 rounded-full mb-3 ${currentView === item.id ? 'bg-odoo-primary/10 text-odoo-primary' : 'bg-gray-50 text-gray-500'}`}>
-                                   <item.icon size={26} />
-                               </div>
-                               <span className="text-sm font-bold text-gray-700">{item.label}</span>
-                           </button>
-                       ))}
-                   </div>
+                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Módulos Disponibles</h3>
+                   {visibleMenuItems.length > 0 ? (
+                       <div className="grid grid-cols-2 gap-4">
+                           {visibleMenuItems.map(item => (
+                               <button
+                                 key={item.id}
+                                 onClick={() => handleNav(item.id)}
+                                 className={`flex flex-col items-center p-5 bg-white border rounded-2xl shadow-sm active:scale-95 transition-all ${currentView === item.id ? 'border-odoo-primary ring-2 ring-odoo-primary/20' : 'border-gray-100'}`}
+                               >
+                                   <div className={`p-3.5 rounded-full mb-3 ${currentView === item.id ? 'bg-odoo-primary/10 text-odoo-primary' : 'bg-gray-50 text-gray-500'}`}>
+                                       <item.icon size={26} />
+                                   </div>
+                                   <span className="text-sm font-bold text-gray-700">{item.label}</span>
+                               </button>
+                           ))}
+                       </div>
+                   ) : (
+                       <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-xl">
+                           No tienes acceso a módulos adicionales.
+                       </p>
+                   )}
                </div>
 
                {/* Admin Section */}
