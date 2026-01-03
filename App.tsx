@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
+import { MobileNavigation } from './components/MobileNavigation';
 import { Dashboard } from './components/Dashboard';
 import { InventoryView } from './components/InventoryView';
 import { ProductAnalysis } from './components/ProductAnalysis';
@@ -340,7 +341,7 @@ export default function App() {
   // 3. MAIN APP
   return (
     <div className="flex h-screen overflow-hidden bg-[#F9FAFB]">
-      {/* Sidebar */}
+      {/* Sidebar (Desktop Only) */}
       <Sidebar 
         currentView={currentView} 
         onNavigate={setCurrentView} 
@@ -355,20 +356,18 @@ export default function App() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         
         {/* Top Header */}
-        <header className="h-16 flex items-center justify-between px-6 z-20 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+        <header className="h-16 flex items-center justify-between px-4 md:px-6 z-20 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
           
-          {/* Left: Search & Connection Context */}
+          {/* Left: Connection Context */}
           <div className="flex items-center space-x-6">
-            <button onClick={toggleSidebar} className="text-gray-500 hover:text-odoo-primary md:hidden">
-                <Menu />
-            </button>
+            {/* Removed Hamburger Menu for Mobile since we have bottom nav now */}
             
             <div className="relative group">
                <button className="flex items-center space-x-3 text-gray-700 hover:text-odoo-primary transition-colors font-medium text-sm">
                    <div className="p-1.5 bg-gray-100 rounded-lg">
                      <Building size={16} className="text-odoo-primary" />
                    </div>
-                   <div className="text-left">
+                   <div className="text-left max-w-[150px] md:max-w-none truncate">
                        <span className="block">{selectedConnection ? selectedConnection.name : 'Seleccionar Conexión'}</span>
                    </div>
                    <ChevronDown size={14} className="text-gray-400" />
@@ -416,7 +415,7 @@ export default function App() {
                          <p className="text-sm font-bold text-gray-800 leading-none mb-0.5">{session.name}</p>
                          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{session.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
                      </div>
-                     <ChevronDown size={14} className="text-gray-400" />
+                     <ChevronDown size={14} className="text-gray-400 hidden md:block" />
                  </button>
                  
                  {isProfileOpen && (
@@ -430,9 +429,9 @@ export default function App() {
           </div>
         </header>
 
-        {/* Dynamic Content View */}
-        <main className="flex-1 overflow-y-auto bg-[#F9FAFB] flex flex-col">
-           <div className="flex-1 p-6">
+        {/* Dynamic Content View with mobile bottom padding */}
+        <main className="flex-1 overflow-y-auto bg-[#F9FAFB] flex flex-col pb-20 md:pb-0">
+           <div className="flex-1 p-4 md:p-6">
                <div className="max-w-[1600px] mx-auto">
                    {currentView === ViewMode.DASHBOARD && (
                        <Dashboard 
@@ -497,10 +496,19 @@ export default function App() {
            </div>
            
            {/* Platform Footer */}
-           <div className="py-4 text-center text-xs text-gray-400 bg-white/50 border-t border-gray-200">
+           <div className="py-4 text-center text-xs text-gray-400 bg-white/50 border-t border-gray-200 hidden md:block">
                 Desarrollado por <a href="https://gaorsystem.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-odoo-primary font-bold hover:underline transition-colors">GaorSystem Perú</a>
            </div>
         </main>
+
+        {/* Mobile Bottom Navigation (Visible only on mobile) */}
+        <MobileNavigation 
+            currentView={currentView}
+            onNavigate={setCurrentView}
+            userRole={session.role}
+            allowedModules={session.clientData?.allowedModules}
+            onLogout={handleLogout}
+        />
       </div>
     </div>
   );

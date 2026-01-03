@@ -113,6 +113,38 @@ export const fetchEmployeeProfiles = async (): Promise<Record<string, Partial<Em
     }
 };
 
+// Nueva función para subir imagen
+export const uploadEmployeePhoto = async (file: File): Promise<string | null> => {
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        // Subir al bucket 'employee-photos'
+        const { error: uploadError } = await supabase.storage
+            .from('employee-photos')
+            .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (uploadError) {
+            console.error('Error uploading file:', uploadError);
+            return null;
+        }
+
+        // Obtener URL pública
+        const { data } = supabase.storage
+            .from('employee-photos')
+            .getPublicUrl(filePath);
+
+        return data.publicUrl;
+    } catch (error) {
+        console.error('Error in uploadEmployeePhoto:', error);
+        return null;
+    }
+};
+
 export const upsertEmployeeProfile = async (odooId: string, profile: Partial<Employee>) => {
     try {
         const payload = {

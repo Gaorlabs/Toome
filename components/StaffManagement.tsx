@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { Users, Calendar, Clock, Plus, Filter, Search, MoreHorizontal, UserCheck, UserX, Briefcase, RefreshCw, Smartphone, Mail, CreditCard, ChevronRight, X, Coffee, Sun, Monitor, AlertCircle, Save, Trash2, Landmark, Heart, Phone, DollarSign, Calculator, Download, Table, Baby, Share2, Camera, Link, Copy, Eye } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Users, Calendar, Clock, Plus, Filter, Search, MoreHorizontal, UserCheck, UserX, Briefcase, RefreshCw, Smartphone, Mail, CreditCard, ChevronRight, X, Coffee, Sun, Monitor, AlertCircle, Save, Trash2, Landmark, Heart, Phone, DollarSign, Calculator, Download, Table, Baby, Share2, Camera, Link as LinkIcon, Copy, Eye, UploadCloud } from 'lucide-react';
 import { OdooConnection, UserSession, Employee, WorkShift, PayrollRow } from '../types';
 import { fetchEmployees } from '../services/odooBridge';
-import { fetchStaffShifts, createStaffShift, deleteStaffShift, fetchEmployeeProfiles, upsertEmployeeProfile, updateStaffShift } from '../services/supabaseClient';
+import { fetchStaffShifts, createStaffShift, deleteStaffShift, fetchEmployeeProfiles, upsertEmployeeProfile, updateStaffShift, uploadEmployeePhoto } from '../services/supabaseClient';
 import * as XLSX from 'xlsx';
 
 interface StaffManagementProps {
@@ -29,6 +29,10 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState<Partial<Employee>>({});
+  
+  // Image Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // State for Shift Modal
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
@@ -222,12 +226,38 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
       }
   };
 
-  // --- PROFILE HANDLERS ---
+  // --- PROFILE HANDLERS & IMAGE UPLOAD ---
 
   const handleOpenProfile = (emp: Employee) => {
       setSelectedEmployee(emp);
       setProfileForm(emp);
       setIsEditingProfile(false);
+  };
+
+  const handleImageClick = () => {
+      if (isEditingProfile && fileInputRef.current) {
+          fileInputRef.current.click();
+      }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setUploadingPhoto(true);
+      try {
+          const publicUrl = await uploadEmployeePhoto(file);
+          if (publicUrl) {
+              setProfileForm(prev => ({ ...prev, photoUrl: publicUrl }));
+          } else {
+              alert("Error al subir la imagen. Verifica permisos en Supabase Storage (bucket 'employee-photos').");
+          }
+      } catch (error) {
+          console.error(error);
+          alert("Error crítico al subir imagen.");
+      } finally {
+          setUploadingPhoto(false);
+      }
   };
 
   const handleSaveProfile = async () => {
@@ -259,7 +289,8 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
       }
       
       const link = generatePublicLink(emp);
-      const text = `Hola ${emp.name}, aquí tienes tu *Tarjeta Digital de Empleado* con tu ficha y turnos actualizados:\n\n🔗 ${link}\n\nGuárdalo en tus favoritos.`;
+      // Updated message to be specific about Weekly Shifts
+      const text = `Hola ${emp.name?.split(' ')[0]}, aquí tienes tu *Rol de Turnos Semanal* y Ficha Digital 📅.\n\nRevisa tu horario actualizado aquí:\n🔗 ${link}`;
       
       const url = `https://wa.me/${emp.personalPhone?.replace(/[^0-9]/g, '') || ''}?text=${encodeURIComponent(text)}`;
       window.open(url, '_blank');
@@ -556,11 +587,10 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
           </div>
       )}
 
-      {/* VIEW: PAYROLL CALCULATOR */}
+      {/* VIEW: PAYROLL CALCULATOR (UNCHANGED) */}
       {activeTab === 'PAYROLL' && (
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
               <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  {/* ... Payroll Header ... */}
                   <div>
                       <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
                           <Calculator size={20} className="text-odoo-primary"/> 
@@ -678,7 +708,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
           </div>
       )}
 
-      {/* MODAL: SHIFT MANAGER (UNCHANGED) */}
+      {/* MODAL: SHIFT MANAGER */}
       {shiftModalOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-slide-up">
@@ -754,14 +784,31 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                   <div className="bg-odoo-primary h-32 relative">
                       <button 
                         onClick={() => setSelectedEmployee(null)}
-                        className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-full transition-colors"
+                        className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-full transition-colors z-20"
                       >
                           <X size={20} />
                       </button>
                       
-                      <div className="absolute -bottom-10 left-8 flex items-end group">
-                          <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden bg-gray-100">
-                              {profileForm.photoUrl ? (
+                      {/* Avatar Upload Container */}
+                      <div className="absolute -bottom-10 left-8 flex items-end group z-10">
+                          {/* Hidden File Input */}
+                          <input 
+                              type="file" 
+                              ref={fileInputRef} 
+                              className="hidden" 
+                              accept="image/*"
+                              onChange={handleFileChange}
+                          />
+                          
+                          <div 
+                            onClick={handleImageClick}
+                            className={`w-24 h-24 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden bg-gray-100 relative ${isEditingProfile ? 'cursor-pointer hover:opacity-90' : ''}`}
+                          >
+                              {uploadingPhoto ? (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                      <RefreshCw className="animate-spin text-white" size={24} />
+                                  </div>
+                              ) : profileForm.photoUrl ? (
                                   <img src={profileForm.photoUrl} alt="Perfil" className="w-full h-full object-cover" />
                               ) : (
                                   <span className="text-odoo-primary text-3xl font-bold">
@@ -769,8 +816,12 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                                   </span>
                               )}
                           </div>
+                          
                           {isEditingProfile && (
-                              <div className="absolute bottom-0 right-0 bg-white shadow-md p-1.5 rounded-full text-gray-500">
+                              <div 
+                                onClick={handleImageClick}
+                                className="absolute bottom-0 right-0 bg-white shadow-md p-1.5 rounded-full text-gray-500 cursor-pointer hover:text-odoo-primary hover:bg-gray-50 transition-colors"
+                              >
                                   <Camera size={14} />
                               </div>
                           )}
@@ -786,6 +837,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                           </div>
                           <button 
                             onClick={() => isEditingProfile ? handleSaveProfile() : setIsEditingProfile(true)}
+                            disabled={uploadingPhoto}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${isEditingProfile ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                           >
                               {isEditingProfile ? <Save size={16} /> : <Briefcase size={16} />}
@@ -818,22 +870,6 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
                       
                       <div className="space-y-6">
                           
-                          {/* Photo URL Input (Only editing) */}
-                          {isEditingProfile && (
-                              <section>
-                                  <label className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1 mb-1">
-                                      <Link size={10} /> URL de Foto (Link Público)
-                                  </label>
-                                  <input 
-                                    type="text" 
-                                    value={profileForm.photoUrl || ''} 
-                                    onChange={(e) => setProfileForm({...profileForm, photoUrl: e.target.value})}
-                                    className="w-full border border-gray-300 rounded p-2 text-xs text-gray-600 font-mono"
-                                    placeholder="https://..."
-                                  />
-                              </section>
-                          )}
-
                           {/* Datos Personales (DNI, Nacimiento) */}
                           <section>
                               <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2 mb-3">

@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, colla
   ];
 
   return (
-    <div className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out h-screen sticky top-0 z-30 ${collapsed ? 'w-20' : 'w-64'}`}>
+    <div className={`bg-white border-r border-gray-200 hidden md:flex flex-col transition-all duration-300 ease-in-out h-screen sticky top-0 z-30 ${collapsed ? 'w-20' : 'w-64'}`}>
       
       {/* Brand Header */}
       <div className="h-20 flex items-center px-6 border-b border-gray-100 bg-white">
