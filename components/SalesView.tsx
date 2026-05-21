@@ -76,8 +76,9 @@ export const SalesView: React.FC<SalesViewProps> = ({ connection, userSession })
       
       let allowedCompanyIds: string[] | undefined = undefined;
       
-      if (userSession?.role === 'CLIENT' && userSession.clientData) {
-          allowedCompanyIds = userSession.clientData.allowedCompanyIds;
+      // CORRECCIÓN: Forzar array vacío si es cliente
+      if (userSession?.role === 'CLIENT') {
+          allowedCompanyIds = userSession.clientData?.allowedCompanyIds || [];
       }
 
       const { start, end } = getEffectiveDateRange();

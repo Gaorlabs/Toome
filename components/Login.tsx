@@ -1,206 +1,195 @@
-
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Database, Key, Lock, ArrowLeft, BarChart2, UserCog } from 'lucide-react';
-import { ConnectionConfig } from '../types';
+import { UserCog, Truck, ClipboardList, Package, CircleDollarSign, Compass, LogIn } from 'lucide-react';
+import { UserSession } from '../types';
 
 interface LoginProps {
-  onAdminLogin: () => void;
-  onClientLogin: (accessKey: string) => void;
-  savedConfig: ConnectionConfig | null;
+  onLogin: (session: UserSession) => void;
 }
 
-type LoginStep = 'CLIENT' | 'ADMIN_AUTH';
+export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-export const Login: React.FC<LoginProps> = ({ onAdminLogin, onClientLogin }) => {
-  const [step, setStep] = useState<LoginStep>('CLIENT');
-  
-  // Admin Auth State
-  const [adminPassword, setAdminPassword] = useState('');
-  const [authError, setAuthError] = useState('');
+  const sellers = [
+    { id: 'S1', name: 'Luis Preventista - Zona Norte' },
+    { id: 'S2', name: 'Ana Preventista - Zona Sur' },
+    { id: 'S3', name: 'Carlos Preventista - Zona Centro' },
+    { id: 'S4', name: 'Diana Preventista - Zona Callao' },
+  ];
 
-  // Client Form State
-  const [clientKey, setClientKey] = useState('');
-
-  const verifyAdminPassword = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword === 'Luis2021.') {
-      onAdminLogin();
-      setAuthError('');
+    if (!username.trim() || !password.trim()) {
+      setError('Por favor ingrese su usuario y contraseña.');
+      return;
+    }
+
+    const lowerUser = username.trim().toLowerCase();
+
+    if (lowerUser === 'admin' || lowerUser.includes('administrador')) {
+      onLogin({
+        role: 'ADMIN',
+        name: 'Administrador Principal'
+      });
     } else {
-      setAuthError('Contraseña incorrecta');
-      setAdminPassword('');
+      // Map existing profiles if they match, otherwise use the typed name
+      let mappedName = username.trim();
+      let sellerId = 'S_CUSTOM';
+
+      if (lowerUser.includes('luis')) {
+        mappedName = 'Luis Preventista - Zona Norte';
+        sellerId = 'S1';
+      } else if (lowerUser.includes('ana')) {
+        mappedName = 'Ana Preventista - Zona Sur';
+        sellerId = 'S2';
+      } else if (lowerUser.includes('carlos')) {
+        mappedName = 'Carlos Preventista - Zona Centro';
+        sellerId = 'S3';
+      } else if (lowerUser.includes('diana')) {
+        mappedName = 'Diana Preventista - Zona Callao';
+        sellerId = 'S4';
+      }
+
+      onLogin({
+        role: 'SELLER',
+        name: mappedName,
+        sellerId: sellerId
+      });
     }
   };
 
-  const handleClientSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onClientLogin(clientKey);
-  };
-
-  const resetToClient = () => {
-    setStep('CLIENT');
-    setAdminPassword('');
-    setAuthError('');
-  };
-
   return (
-    // Changed from fixed/overflow-y-auto to min-h-screen/relative. 
-    // This allows the BODY to scroll, enabling native pull-to-refresh.
-    <div className="min-h-screen w-full bg-[#f3f4f6] font-sans relative flex flex-col z-0">
-      
-      {/* Background Decor - Fixed so they don't scroll away, but stay in background */}
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
-          <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-teal-100/50 blur-[100px]"></div>
-          <div className="absolute bottom-[-10%] left-[-5%] w-[600px] h-[600px] rounded-full bg-purple-100/50 blur-[100px]"></div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#f3e7f3] via-[#f7f0f6] to-[#e0f5f4] font-sans relative flex flex-col justify-between overflow-x-hidden">
+      {/* Dynamic Ambient Background */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#E3F8F8]/40 blur-[130px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#F0E5F4]/40 blur-[130px]" />
       </div>
 
-      {/* Main Container - Uses flex-grow to center vertically if content is small, but flows naturally if tall */}
-      <div className="flex-grow flex flex-col items-center justify-center p-4 md:p-8 relative z-10 w-full">
-        
-        {/* Card Container */}
-        <div className="w-full max-w-5xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] relative animate-fade-in ring-1 ring-black/5">
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 z-10">
+        <div className="w-full max-w-4xl bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white/50 overflow-hidden flex flex-col md:flex-row min-h-[550px]">
           
-          {/* Left Section (Brand Visual) */}
-          <div className="md:w-1/2 bg-[#0E5E6F] relative overflow-hidden flex flex-col justify-between p-8 md:p-12 text-white">
-              {/* Gradient Overlay matching the reference image */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#017E84] to-[#2E1065] opacity-90"></div>
-              {/* Texture/Noise overlay for premium feel */}
-              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
-              
-              {/* Logo & Headline */}
-              <div className="relative z-10">
-                  <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/10 shadow-lg">
-                      <BarChart2 className="text-white" size={28} />
-                  </div>
-                  <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight font-ubuntu">Toome</h1>
-                  <p className="text-lg text-white/80 font-light leading-relaxed max-w-md">
-                      Inteligencia de negocios unificada para tu ecosistema Odoo.
-                  </p>
-              </div>
-
-              {/* Feature Cards (Glassmorphism) */}
-              <div className="relative z-10 space-y-4 mt-12 md:mt-0">
-                  <div className="group bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-all cursor-default">
-                      <div className="p-2.5 bg-white/10 rounded-xl group-hover:scale-110 transition-transform">
-                          <Database size={20} className="text-white" />
-                      </div>
-                      <div>
-                          <h3 className="font-bold text-sm">Multi-Compañía</h3>
-                          <p className="text-xs text-white/60">Gestión de datos centralizada</p>
-                      </div>
-                  </div>
-                  <div className="group bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-all cursor-default">
-                       <div className="p-2.5 bg-white/10 rounded-xl group-hover:scale-110 transition-transform">
-                          <ShieldCheck size={20} className="text-white" />
-                      </div>
-                      <div>
-                          <h3 className="font-bold text-sm">Seguridad Avanzada</h3>
-                          <p className="text-xs text-white/60">Control de acceso por roles</p>
-                      </div>
-                  </div>
-              </div>
-          </div>
-
-          {/* Right Section (Login Form) */}
-          <div className="md:w-1/2 bg-white p-8 md:p-16 flex flex-col justify-center relative">
+          {/* Brand Presentation Panel (Left Side) */}
+          <div className="md:w-[42%] bg-gradient-to-br from-[#0b5762] to-[#1a1f4c] p-8 md:p-10 text-white flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-400/10 via-transparent to-transparent opacity-50"></div>
             
-            {step === 'CLIENT' && (
-              <div className="max-w-sm mx-auto w-full animate-slide-up">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2 font-ubuntu">Bienvenido</h2>
-                  <p className="text-gray-500 mb-10 text-sm">Accede a tu panel de control personalizado.</p>
-
-                  <form onSubmit={handleClientSubmit} className="space-y-6">
-                      <div>
-                          <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Clave de Acceso</label>
-                          <div className="relative group">
-                              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                  <Key className="text-gray-400 group-focus-within:text-odoo-primary transition-colors" size={20} />
-                              </div>
-                              <input 
-                                type="password"
-                                value={clientKey}
-                                onChange={(e) => setClientKey(e.target.value)}
-                                className="w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-odoo-primary/20 focus:border-odoo-primary transition-all font-medium text-lg"
-                                placeholder="Ej: CL-8829-XP"
-                                required
-                              />
-                          </div>
-                      </div>
-
-                      <button 
-                        type="submit"
-                        className="w-full bg-[#017E84] hover:bg-[#006064] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-teal-900/10 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-                      >
-                          <span>Ingresar al Dashboard</span>
-                          <ArrowRight size={20} />
-                      </button>
-                  </form>
-
-                  <div className="mt-12 text-center border-t border-gray-100 pt-8">
-                      <button 
-                        onClick={() => setStep('ADMIN_AUTH')}
-                        className="text-gray-400 hover:text-gray-600 text-sm font-medium flex items-center justify-center gap-2 mx-auto transition-colors group"
-                      >
-                          <UserCog size={16} className="group-hover:scale-110 transition-transform"/>
-                          <span>Soy Administrador</span>
-                      </button>
-                  </div>
+            <div className="relative z-10">
+              <div className="inline-flex p-3 bg-white/10 rounded-2xl border border-white/10 mb-6 backdrop-blur-md shadow-lg">
+                <Truck size={28} className="text-white animate-pulse" />
               </div>
-            )}
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Toome</h1>
+              <p className="text-sm font-semibold text-teal-100/80 mt-1 uppercase tracking-wider">Ventas & Distribución</p>
+              <p className="text-sm text-slate-300 mt-4 leading-relaxed font-light">
+                Plataforma integrada de preventa en campo, control de stock listo para envío y distribución inteligente por rutas de despacho.
+              </p>
+            </div>
 
-            {step === 'ADMIN_AUTH' && (
-              <div className="max-w-sm mx-auto w-full animate-slide-up">
-                   <button 
-                    onClick={resetToClient}
-                    className="absolute top-8 left-8 md:left-12 text-gray-400 hover:text-gray-900 transition-colors"
-                   >
-                       <ArrowLeft size={24} />
-                   </button>
+            {/* Micro value statements */}
+            <div className="relative z-10 space-y-3.5 mt-8 md:mt-0">
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                <div className="p-1.5 bg-white/10 rounded-lg text-white/80">
+                  <ClipboardList size={16} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-xs font-bold leading-tight">Pedidos en Campo</h4>
+                  <p className="text-[10px] text-white/60">Toma de pedidos en la tienda del cliente</p>
+                </div>
+              </div>
 
-                  <div className="text-center mb-8 mt-4">
-                      <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-500 ring-4 ring-red-50">
-                          <Lock size={32} />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900">Acceso Admin</h2>
-                      <p className="text-gray-500 text-sm mt-1">Credenciales maestras requeridas.</p>
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                <div className="p-1.5 bg-white/10 rounded-lg text-white/80">
+                  <Compass size={16} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-xs font-bold leading-tight">Distribución & Zonas</h4>
+                  <p className="text-[10px] text-white/60">Rutas ordenadas el día siguiente</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                <div className="p-1.5 bg-white/10 rounded-lg text-white/80">
+                  <Package size={16} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-xs font-bold leading-tight">Kardex de Inventario</h4>
+                  <p className="text-[10px] text-white/60">Sincronizado con almacén de despacho</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Form Panel (Right Side) */}
+          <div className="flex-1 p-8 md:p-12 flex flex-col justify-center bg-white">
+            <div className="w-full max-w-sm mx-auto">
+              <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Ingreso al Sistema</h2>
+              <p className="text-sm text-slate-500 mb-8">Por favor, ingrese sus credenciales para continuar.</p>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                  <div className="p-3 bg-rose-50 border border-rose-150 text-rose-600 rounded-xl text-xs font-bold">
+                    ⚠️ {error}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+                      Usuario
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (error) setError('');
+                      }}
+                      placeholder="Ej. admin o luis"
+                      className="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm text-[#007678] focus:outline-none focus:ring-2 focus:ring-[#007678]/20 focus:border-[#007678] font-bold placeholder-slate-400 shadow-sm"
+                      required
+                    />
                   </div>
 
-                  <form onSubmit={verifyAdminPassword} className="space-y-6">
-                      <div>
-                          <input 
-                            type="password"
-                            value={adminPassword}
-                            onChange={(e) => setAdminPassword(e.target.value)}
-                            className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-center text-2xl tracking-[0.5em] text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-                            placeholder="••••••••"
-                            autoFocus
-                            required
-                          />
-                          {authError && (
-                              <p className="text-red-500 text-sm font-bold text-center mt-3 animate-pulse bg-red-50 py-1 px-3 rounded-full inline-block w-full">{authError}</p>
-                          )}
-                      </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+                      Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError('');
+                      }}
+                      placeholder="••••••••"
+                      className="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm text-[#007678] focus:outline-none focus:ring-2 focus:ring-[#007678]/20 focus:border-[#007678] font-bold placeholder-slate-400 shadow-sm"
+                      required
+                    />
+                  </div>
+                </div>
 
-                      <button 
-                        type="submit"
-                        className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                      >
-                          Desbloquear
-                      </button>
-                  </form>
-              </div>
-            )}
+                <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-200 text-[11px] text-slate-500 leading-relaxed">
+                  💡 Ingrese <strong className="text-[#007678]">admin</strong> para iniciar como Administrador, o el nombre de un preventista (ej: <strong className="text-[#007678]">luis</strong>) para ingresar como Vendedor en Campo.
+                </div>
 
+                <button
+                  type="submit"
+                  className="w-full mt-2 bg-[#007678] hover:bg-[#005e60] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] cursor-pointer"
+                >
+                  <span className="uppercase tracking-wider text-xs font-black">Iniciar Sesión</span>
+                  <LogIn size={16} />
+                </button>
+              </form>
+            </div>
           </div>
 
         </div>
-        
-        {/* Footer */}
-        <div className="mt-8 text-center text-xs text-gray-400 font-medium pb-4">
-            <p>&copy; 2025 Toome Analytics. Secure Connection via Odoo XML-RPC.</p>
-            <p className="mt-1 opacity-75">Desarrollado por <span className="text-odoo-primary font-bold">GaorSystem Perú</span></p>
-        </div>
+      </div>
 
+      {/* Footer Credential Signoff */}
+      <div className="p-4 text-center text-[11px] text-slate-400 border-none bg-transparent font-medium">
+        Distribución & Despacho Toome Campo • Versión 3.0 • Desarrollado por <span className="text-[#007678] font-bold">GaorSystem Perú</span>
       </div>
     </div>
   );

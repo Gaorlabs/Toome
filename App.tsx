@@ -1,546 +1,394 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { MobileNavigation } from './components/MobileNavigation';
 import { Dashboard } from './components/Dashboard';
+import { SellField } from './components/SellField';
+import { RoutesView } from './components/RoutesView';
 import { InventoryView } from './components/InventoryView';
-import { ProductAnalysis } from './components/ProductAnalysis';
-import { CustomerView } from './components/CustomerView'; 
-import { SalesView } from './components/SalesView'; 
-import { ReportsView } from './components/ReportsView'; 
-import { AgendaModule } from './components/AgendaModule';
+import { PaymentsView } from './components/PaymentsView';
+import { ClientsView } from './components/ClientsView';
+import { ReportsView } from './components/ReportsView';
 import { Login } from './components/Login';
-import { ClientManagement } from './components/ClientManagement';
-import { ConnectionManager } from './components/ConnectionManager';
-import { StaffManagement } from './components/StaffManagement';
-import { PublicEmployeeView } from './components/PublicEmployeeView'; // Import new component
-import { ViewMode, UserSession, ClientAccess, OdooConnection, OdooCompany, AppModule } from './types';
-import { MOCK_KPIS, MOCK_SALES_DATA, MOCK_TOP_PRODUCTS, MOCK_INVENTORY, MOCK_CUSTOMERS, MOCK_BRANCHES } from './constants';
-import { Search, ChevronDown, Building, Menu, AlertTriangle, Lock } from 'lucide-react';
-import { supabase } from './services/supabaseClient';
+import { InteractiveFlow } from './components/InteractiveFlow';
+
+import { Product, ClientStore, Order, DeliveryRoute, PaymentRecord, ViewMode, UserSession } from './types';
+import { loadLocalStorage, saveLocalStorage } from './data';
+import { ChevronDown, Lock, LogOut } from 'lucide-react';
 
 export default function App() {
-  // Check for Public Link Query Params
-  const [publicToken, setPublicToken] = useState<string | null>(null);
-
-  // Auth State
   const [session, setSession] = useState<UserSession | null>(null);
-  const [loadingSession, setLoadingSession] = useState(false);
-  
-  // App Data State (Fetched from Supabase)
-  const [connections, setConnections] = useState<OdooConnection[]>([]);
-  const [clients, setClients] = useState<ClientAccess[]>([]);
-
-  // View State
-  const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedConnection, setSelectedConnection] = useState<OdooConnection | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
 
+  // Core Data State
+  const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<ClientStore[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+
+  // On Mounting - Load from Local Storage Seeding
   useEffect(() => {
-      // Simple routing check
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
-      if (token) {
-          setPublicToken(token);
-      }
+    const loaded = loadLocalStorage();
+    setProducts(loaded.products);
+    setClients(loaded.clients);
+    setOrders(loaded.orders);
+    setRoutes(loaded.routes);
+    setPayments(loaded.payments);
+
+    // Get active session if persisted
+    const savedSession = localStorage.getItem('toome_active_session');
+    if (savedSession) {
+      setSession(JSON.parse(savedSession));
+    }
   }, []);
 
-  // LOGIC: Determine which connections are available to the current user based on allowed companies
-  const availableConnections = React.useMemo(() => {
-    if (!session) return [];
-    if (session.role === 'ADMIN') return connections;
-    if (session.role === 'CLIENT' && session.clientData) {
-      const allowedCompIds = session.clientData.allowedCompanyIds || [];
-      return connections.filter(conn => 
-        conn.companies && conn.companies.some(comp => allowedCompIds.includes(comp.id))
-      );
-    }
-    return [];
-  }, [session, connections]);
-
-  useEffect(() => {
-    if (availableConnections.length > 0) {
-        if (!selectedConnection || !availableConnections.find(c => c.id === selectedConnection.id)) {
-            setSelectedConnection(availableConnections[0]);
-        }
-    } else {
-        setSelectedConnection(null);
-    }
-  }, [availableConnections, selectedConnection]);
-
-  // Centralized Permission Checker
-  const hasAccess = (module: AppModule): boolean => {
-      if (!session) return false;
-      if (session.role === 'ADMIN') return true;
-      const allowed = session.clientData?.allowedModules || [];
-      return allowed.includes(module);
+  // Sync to local storage on state change
+  const syncState = (
+    updatedProducts: Product[],
+    updatedClients: ClientStore[],
+    updatedOrders: Order[],
+    updatedRoutes: DeliveryRoute[],
+    updatedPayments: PaymentRecord[]
+  ) => {
+    saveLocalStorage({
+      products: updatedProducts,
+      clients: updatedClients,
+      orders: updatedOrders,
+      routes: updatedRoutes,
+      payments: updatedPayments
+    });
   };
 
-  const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
-
-  const handleAdminLogin = async () => {
-    setLoadingSession(true);
-    try {
-        const { data: connData, error: connError } = await supabase.from('odoo_connections').select('*');
-        const { data: clientData, error: clientError } = await supabase.from('client_profiles').select('*');
-
-        if (connError) console.warn("Could not fetch connections, ensure table exists.", connError);
-        
-        const mappedConnections: OdooConnection[] = (connData || []).map(c => ({
-            id: c.id,
-            name: c.name,
-            url: c.url,
-            db: c.db_name, 
-            user: c.username,
-            apiKey: c.api_key,
-            status: c.status as any,
-            lastCheck: c.last_check,
-            companies: c.companies_metadata || []
-        }));
-
-        const mappedClients: ClientAccess[] = (clientData || []).map(c => ({
-            id: c.id,
-            name: c.name,
-            accessKey: c.access_key,
-            assignedConnectionIds: c.allowed_connection_ids,
-            allowedCompanyIds: c.allowed_company_ids,
-            allowedPosIds: c.allowed_pos_ids || [], // Ensure field exists
-            allowedModules: c.allowed_modules,
-            createdAt: c.created_at
-        }));
-
-        setConnections(mappedConnections);
-        setClients(mappedClients);
-        
-        setSession({
-            role: 'ADMIN',
-            name: 'Administrador',
-        });
-        setCurrentView(ViewMode.CONNECTION_MANAGEMENT);
-    } catch (e) {
-        console.error(e);
-        alert("Error iniciando sesión. Verifica la consola.");
-    } finally {
-        setLoadingSession(false);
-    }
-  };
-
-  const handleClientLogin = async (key: string) => {
-    setLoadingSession(true);
-    try {
-        const { data, error } = await supabase.rpc('login_with_key', { input_key: key });
-
-        if (error) {
-             console.error(error);
-             alert('Error de conexión o función login_with_key no existe.');
-             setLoadingSession(false);
-             return;
-        }
-
-        if (!data) {
-            alert('Clave de acceso inválida');
-            setLoadingSession(false);
-            return;
-        }
-
-        const clientRecord = data.client;
-        const connectionRecords = data.connections || [];
-
-        // Ensure allowedModules is an array
-        const allowedModules: AppModule[] = Array.isArray(clientRecord.allowed_modules) ? clientRecord.allowed_modules : [];
-
-        const mappedClient: ClientAccess = {
-            id: clientRecord.id,
-            name: clientRecord.name,
-            accessKey: clientRecord.access_key,
-            assignedConnectionIds: clientRecord.allowed_connection_ids,
-            allowedCompanyIds: clientRecord.allowed_company_ids,
-            allowedPosIds: clientRecord.allowed_pos_ids || [],
-            allowedModules: allowedModules,
-            createdAt: clientRecord.created_at
-        };
-
-        const mappedConnections: OdooConnection[] = connectionRecords.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            url: c.url,
-            db: c.db_name,
-            user: c.username,
-            apiKey: c.api_key,
-            status: c.status as any,
-            lastCheck: c.last_check,
-            companies: c.companies_metadata || []
-        }));
-
-        setClients([mappedClient]);
-        setConnections(mappedConnections);
-
-        // INTELLIGENT REDIRECT: Set initial view based on permissions
-        let initialView = ViewMode.DASHBOARD;
-        if (allowedModules.includes('DASHBOARD')) initialView = ViewMode.DASHBOARD;
-        else if (allowedModules.includes('SALES')) initialView = ViewMode.CUSTOMERS;
-        else if (allowedModules.includes('INVENTORY')) initialView = ViewMode.INVENTORY;
-        else if (allowedModules.includes('STAFF')) initialView = ViewMode.STAFF;
-        else if (allowedModules.includes('REPORTS')) initialView = ViewMode.REPORTS;
-        else if (allowedModules.includes('AGENDA')) initialView = ViewMode.AGENDA;
-        else if (allowedModules.includes('PRODUCTS')) initialView = ViewMode.PRODUCTS;
-
-        setCurrentView(initialView);
-
-        setSession({
-            role: 'CLIENT',
-            name: mappedClient.name,
-            clientData: mappedClient
-        });
-
-    } catch (e) {
-        console.error(e);
-        alert('Error inesperado al iniciar sesión.');
-    } finally {
-        setLoadingSession(false);
-    }
+  const handleLogin = (userSession: UserSession) => {
+    setSession(userSession);
+    localStorage.setItem('toome_active_session', JSON.stringify(userSession));
+    setCurrentView(ViewMode.DASHBOARD);
   };
 
   const handleLogout = () => {
     setSession(null);
-    setConnections([]);
-    setClients([]);
+    localStorage.removeItem('toome_active_session');
     setCurrentView(ViewMode.DASHBOARD);
   };
 
-  // ... (Create/Update/Delete Handlers omitted for brevity, identical to previous) ...
-  const handleCreateClient = async (newClient: Omit<ClientAccess, 'id' | 'createdAt'>) => {
-    try {
-        const { data, error } = await supabase.from('client_profiles').insert({
-            name: newClient.name,
-            access_key: newClient.accessKey,
-            allowed_connection_ids: newClient.assignedConnectionIds,
-            allowed_company_ids: newClient.allowedCompanyIds,
-            allowed_pos_ids: newClient.allowedPosIds,
-            allowed_modules: newClient.allowedModules
-        }).select();
+  // State update handlers
+  const handleAddOrder = (newOrder: Order) => {
+    const nextOrders = [...orders, newOrder];
+    setOrders(nextOrders);
+    syncState(products, clients, nextOrders, routes, payments);
+  };
 
-        if (error) throw error;
-        if (data) {
-             const created = data[0];
-             const mapped: ClientAccess = {
-                id: created.id,
-                name: created.name,
-                accessKey: created.access_key,
-                assignedConnectionIds: created.allowed_connection_ids,
-                allowedCompanyIds: created.allowed_company_ids,
-                allowedPosIds: created.allowed_pos_ids || [],
-                allowedModules: created.allowed_modules,
-                createdAt: created.created_at
-             };
-             setClients([...clients, mapped]);
+  const handleConfirmOrder = (orderId: string, scheduledDate: string) => {
+    // 1. Confirm order status
+    // 2. Decrease inventory stock for each item
+    // 3. Increment Client's outstandingBalance if not fully paid yet
+    let nextProducts = [...products];
+    let nextClients = [...clients];
+
+    const nextOrders = orders.map(o => {
+      if (o.id === orderId) {
+        // Decrease stock
+        o.items.forEach(item => {
+          nextProducts = nextProducts.map(p => 
+            p.id === item.productId 
+              ? { ...p, stock: Math.max(0, p.stock - item.qty) } 
+              : p
+          );
+        });
+
+        // Add unpaid total to outstanding balance
+        const unpaidAmount = Math.max(0, o.total - o.paidAmount);
+        if (unpaidAmount > 0) {
+          nextClients = nextClients.map(c => 
+            c.id === o.storeId 
+              ? { ...c, outstandingBalance: Number((c.outstandingBalance + unpaidAmount).toFixed(2)) } 
+              : c
+          );
         }
-    } catch (e: any) {
-        console.error("Error creating client", e);
-        alert(`Error al guardar cliente`);
-    }
-  };
 
-  const handleUpdateClient = async (id: string, updates: Partial<ClientAccess>) => {
-      try {
-          const dbUpdates: any = {};
-          if (updates.name !== undefined) dbUpdates.name = updates.name;
-          if (updates.assignedConnectionIds !== undefined) dbUpdates.allowed_connection_ids = updates.assignedConnectionIds;
-          if (updates.allowedCompanyIds !== undefined) dbUpdates.allowed_company_ids = updates.allowedCompanyIds;
-          if (updates.allowedPosIds !== undefined) dbUpdates.allowed_pos_ids = updates.allowedPosIds;
-          if (updates.allowedModules !== undefined) dbUpdates.allowed_modules = updates.allowedModules;
-
-          const { error } = await supabase.from('client_profiles').update(dbUpdates).eq('id', id);
-          if (error) throw error;
-
-          setClients(clients.map(c => c.id === id ? { ...c, ...updates } : c));
-
-      } catch (e: any) {
-          console.error("Error updating client", e);
-          alert(`Error al actualizar cliente`);
+        return { ...o, status: 'CONFIRMED' as const, shippingDate: scheduledDate };
       }
+      return o;
+    });
+
+    setProducts(nextProducts);
+    setClients(nextClients);
+    setOrders(nextOrders);
+    syncState(nextProducts, nextClients, nextOrders, routes, payments);
   };
 
-  const handleDeleteClient = async (id: string) => {
-    try {
-        const { error } = await supabase.from('client_profiles').delete().eq('id', id);
-        if (error) throw error;
-        setClients(clients.filter(c => c.id !== id));
-    } catch (e: any) {
-        console.error(e);
-        alert(`Error al eliminar cliente`);
-    }
-  };
-
-  const handleAddConnection = async (conn: OdooConnection) => {
-      try {
-          const { data, error } = await supabase.from('odoo_connections').insert({
-              name: conn.name,
-              url: conn.url,
-              db_name: conn.db,
-              username: conn.user,
-              api_key: conn.apiKey,
-              companies_metadata: [],
-              status: 'PENDING'
-          }).select();
-          
-          if(error) throw error;
-
-          if (data) {
-              const created = data[0];
-              const newConn = { ...conn, id: created.id };
-              setConnections([...connections, newConn]);
-          }
-      } catch (e: any) {
-          console.error(e);
-          alert(`Error al guardar conexión`);
-      }
-  };
-
-  const handleRemoveConnection = async (id: string) => {
-       try {
-        const { error } = await supabase.from('odoo_connections').delete().eq('id', id);
-        if (error) throw error;
-        setConnections(connections.filter(c => c.id !== id));
-      } catch(e: any) {
-          console.error(e);
-          alert(`Error al eliminar conexión`);
-      }
-  };
-
-  const handleUpdateConnectionStatus = async (id: string, status: 'CONNECTED' | 'ERROR', mode?: 'REAL' | 'MOCK', companies?: OdooCompany[]) => {
-       setConnections(connections.map(c => 
-          c.id === id 
-          ? { 
-              ...c, 
-              status, 
-              connectionMode: mode, 
-              lastCheck: new Date().toLocaleString(),
-              companies: companies || c.companies || [] 
-            } 
-          : c
-      ));
-      
-      const updatePayload: any = {
-          status: status,
-          last_check: new Date().toISOString()
-      };
-
-      if (companies && companies.length > 0) {
-          updatePayload.companies_metadata = companies;
-      }
-
-      await supabase.from('odoo_connections').update(updatePayload).eq('id', id);
-  };
-
-  // --- RENDER LOGIC ---
-
-  // 1. PUBLIC VIEW
-  if (publicToken) {
-      return <PublicEmployeeView token={publicToken} />;
-  }
-
-  // 2. LOGIN
-  if (!session) {
-    return (
-      <Login 
-        onAdminLogin={handleAdminLogin}
-        onClientLogin={handleClientLogin}
-        savedConfig={null}
-      />
+  const handleCancelOrder = (orderId: string) => {
+    const nextOrders = orders.map(o => 
+      o.id === orderId ? { ...o, status: 'CANCELLED' as const } : o
     );
+    setOrders(nextOrders);
+    syncState(products, clients, nextOrders, routes, payments);
+  };
+
+  const handleDeliverOrder = (orderId: string) => {
+    const nextOrders = orders.map(o => 
+      o.id === orderId ? { ...o, status: 'DELIVERED' as const } : o
+    );
+    setOrders(nextOrders);
+    syncState(products, clients, nextOrders, routes, payments);
+  };
+
+  const handleCreateRoute = (newRouteData: Omit<DeliveryRoute, 'id'>) => {
+    const newRoute: DeliveryRoute = {
+      ...newRouteData,
+      id: `RUT-${Math.floor(100 + Math.random() * 900)}`,
+      orderIds: []
+    };
+    const nextRoutes = [...routes, newRoute];
+    setRoutes(nextRoutes);
+    syncState(products, clients, orders, nextRoutes, payments);
+  };
+
+  const handleAssignOrderToRoute = (orderId: string, routeId: string | undefined) => {
+    // 1. Update order reference
+    const nextOrders = orders.map(o => 
+      o.id === orderId ? { ...o, shippingRouteId: routeId } : o
+    );
+
+    // 2. Update route assignments
+    const nextRoutes = routes.map(r => {
+      // Remove order from previous route if belonged
+      let orderIds = r.orderIds.filter(id => id !== orderId);
+      // Add to this route if target matches
+      if (r.id === routeId) {
+        orderIds = [...orderIds, orderId];
+      }
+      return { ...r, orderIds };
+    });
+
+    setOrders(nextOrders);
+    setRoutes(nextRoutes);
+    syncState(products, clients, nextOrders, nextRoutes, payments);
+  };
+
+  const handleCompleteRoute = (routeId: string) => {
+    const targetRoute = routes.find(r => r.id === routeId);
+    if (!targetRoute) return;
+
+    // 1. Mark route as completed
+    const nextRoutes = routes.map(r => 
+      r.id === routeId ? { ...r, status: 'COMPLETED' as const } : r
+    );
+
+    // 2. Mark all assigned orders as DELIVERED
+    const nextOrders = orders.map(o => 
+      targetRoute.orderIds.includes(o.id) ? { ...o, status: 'DELIVERED' as const } : o
+    );
+
+    setRoutes(nextRoutes);
+    setOrders(nextOrders);
+    syncState(products, clients, nextOrders, nextRoutes, payments);
+  };
+
+  const handleUpdateStock = (productId: string, newStock: number, cost: number, price: number) => {
+    const nextProducts = products.map(p => 
+      p.id === productId ? { ...p, stock: newStock, cost, salePrice: price } : p
+    );
+    setProducts(nextProducts);
+    syncState(nextProducts, clients, orders, routes, payments);
+  };
+
+  const handleAddProduct = (newProduct: Product) => {
+    const nextProducts = [...products, newProduct];
+    setProducts(nextProducts);
+    syncState(nextProducts, clients, orders, routes, payments);
+  };
+
+  const handleAddPayment = (newPayment: PaymentRecord) => {
+    const nextPayments = [...payments, newPayment];
+    setPayments(nextPayments);
+    syncState(products, clients, orders, routes, nextPayments);
+  };
+
+  // Reduce client's outstanding debt balance on pay
+  const handleClearBalance = (clientId: string, amount: number) => {
+    const nextClients = clients.map(c => 
+      c.id === clientId 
+        ? { ...c, outstandingBalance: Math.max(0, Number((c.outstandingBalance - amount).toFixed(2))) } 
+        : c
+    );
+    setClients(nextClients);
+    syncState(products, nextClients, orders, routes, payments);
+  };
+
+  const handleAddClient = (newClient: ClientStore) => {
+    const nextClients = [...clients, newClient];
+    setClients(nextClients);
+    syncState(products, nextClients, orders, routes, payments);
+  };
+
+  const handleUpdateClient = (updatedClient: ClientStore) => {
+    const nextClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
+    setClients(nextClients);
+    syncState(products, nextClients, orders, routes, payments);
+  };
+
+  const handleDeleteClient = (clientId: string) => {
+    const nextClients = clients.filter(c => c.id !== clientId);
+    setClients(nextClients);
+    syncState(products, nextClients, orders, routes, payments);
+  };
+
+  // Authentication barrier Check
+  if (!session) {
+    return <Login onLogin={handleLogin} />;
   }
 
-  // 3. MAIN APP
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F9FAFB]">
-      {/* Sidebar (Desktop Only) */}
+    <div className="flex h-screen overflow-hidden bg-[#F8FAF9]">
       <Sidebar 
-        key={`sidebar-${session.role}-${JSON.stringify(session.clientData?.allowedModules)}`}
         currentView={currentView} 
         onNavigate={setCurrentView} 
         collapsed={sidebarCollapsed}
-        toggleCollapse={toggleSidebar}
-        userRole={session.role}
-        allowedModules={session.clientData?.allowedModules} 
+        toggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        session={session}
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        
-        {/* Top Header */}
-        <header className="h-16 flex items-center justify-between px-4 md:px-6 z-20 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
-          
-          {/* Left: Connection Context */}
-          <div className="flex items-center space-x-6">
-            <div className="relative group">
-               <button className="flex items-center space-x-3 text-gray-700 hover:text-odoo-primary transition-colors font-medium text-sm">
-                   <div className="p-1.5 bg-gray-100 rounded-lg">
-                     <Building size={16} className="text-odoo-primary" />
-                   </div>
-                   <div className="text-left max-w-[150px] md:max-w-none truncate">
-                       <span className="block">{selectedConnection ? selectedConnection.name : 'Seleccionar Conexión'}</span>
-                   </div>
-                   <ChevronDown size={14} className="text-gray-400" />
-               </button>
-               {/* Dropdown */}
-               <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl hidden group-hover:block z-20 p-1">
-                   {availableConnections.length > 0 ? availableConnections.map(c => (
-                       <div 
-                        key={c.id} 
-                        className={`p-2 hover:bg-gray-50 cursor-pointer rounded-md transition-colors ${selectedConnection?.id === c.id ? 'bg-odoo-primary/5 text-odoo-primary' : ''}`}
-                        onClick={() => setSelectedConnection(c)}
-                       >
-                           <div className="font-medium text-sm">{c.name}</div>
-                           <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                               <span className={`w-1.5 h-1.5 rounded-full ${c.status === 'CONNECTED' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                               {c.db}
-                           </div>
-                       </div>
-                   )) : (
-                     <div className="p-3 text-sm text-gray-400 text-center italic">No hay conexiones disponibles</div>
-                   )}
-               </div>
-            </div>
-
-            {/* DEMO MODE BANNER */}
-            {selectedConnection?.connectionMode === 'MOCK' && (
-                <div className="hidden md:flex items-center gap-2 bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">
-                    <AlertTriangle size={12} />
-                    <span>MODO DEMO</span>
-                </div>
-            )}
+        <header className="h-16 flex items-center justify-between px-4 md:px-6 z-20 bg-white border-b border-slate-100 shadow-sm flex-shrink-0">
+          <div className="flex items-center space-x-4">
+            <span className="text-xs font-black text-[#017E84] bg-teal-50 px-3 py-1.5 rounded-xl border border-teal-100 tracking-wide">
+              TOOME PREVENTAS
+            </span>
           </div>
 
-          {/* Right: Actions & Profile */}
           <div className="flex items-center space-x-4">
-             <div className="relative">
-                 <button 
-                    onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="flex items-center space-x-3"
-                 >
-                     <div className={`w-8 h-8 rounded-full ${session.role === 'ADMIN' ? 'bg-odoo-secondary' : 'bg-odoo-primary'} text-white flex items-center justify-center font-bold text-xs`}>
-                         {session.name.substring(0, 2).toUpperCase()}
-                     </div>
-                     <div className="hidden md:block text-left">
-                         <p className="text-sm font-bold text-gray-800 leading-none mb-0.5">{session.name}</p>
-                         <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{session.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
-                     </div>
-                     <ChevronDown size={14} className="text-gray-400 hidden md:block" />
-                 </button>
-                 
-                 {isProfileOpen && (
-                   <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
-                      <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium transition-colors">
-                        Cerrar Sesión
-                      </button>
-                   </div>
-                 )}
-             </div>
+            <div className="relative">
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)} 
+                className="flex items-center space-x-3 text-left outline-none"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#017E84] text-white flex items-center justify-center font-bold text-xs ring-2 ring-teal-50">
+                  {session.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-xs font-extrabold text-slate-800 leading-none mb-1">{session.name}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                    {session.role === 'ADMIN' ? 'Administrador' : 'Vendedor Campo'}
+                  </p>
+                </div>
+                <ChevronDown size={14} className="text-slate-400 hidden md:block" />
+              </button>
+              
+              {isProfileOpen && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-slate-100 rounded-xl shadow-lg z-20 py-1.5 animate-slide-up">
+                  <button 
+                    onClick={handleLogout} 
+                    className="w-full text-left px-4 py-2.5 text-xs text-rose-500 hover:bg-rose-50 font-bold flex items-center gap-2"
+                  >
+                    <LogOut size={14} /> Close Session
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Dynamic Content View - WITH STRICT PROTECTION */}
-        <main className="flex-1 overflow-y-auto bg-[#F9FAFB] flex flex-col pb-20 md:pb-0">
-           <div className="flex-1 p-4 md:p-6">
-               <div className="max-w-[1600px] mx-auto">
-                   
-                   {currentView === ViewMode.DASHBOARD && hasAccess('DASHBOARD') && (
-                       <Dashboard 
-                           kpis={MOCK_KPIS} 
-                           salesData={MOCK_SALES_DATA} 
-                           topProducts={MOCK_TOP_PRODUCTS}
-                           inventory={MOCK_INVENTORY}
-                           branchKPIs={MOCK_BRANCHES}
-                           activeConnection={selectedConnection} 
-                           userSession={session} 
-                       />
-                   )}
-                   {currentView === ViewMode.INVENTORY && hasAccess('INVENTORY') && (
-                       <InventoryView connection={selectedConnection} userSession={session} />
-                   )}
-                   {currentView === ViewMode.PRODUCTS && hasAccess('PRODUCTS') && (
-                       <ProductAnalysis products={MOCK_TOP_PRODUCTS} />
-                   )}
-                   {currentView === ViewMode.AGENDA && hasAccess('AGENDA') && (
-                       <AgendaModule connection={selectedConnection} />
-                   )}
-                   {currentView === ViewMode.CUSTOMERS && hasAccess('SALES') && (
-                       <SalesView connection={selectedConnection} userSession={session} />
-                   )}
-                   {currentView === ViewMode.REPORTS && hasAccess('REPORTS') && (
-                       <ReportsView connection={selectedConnection} userSession={session} />
-                   )}
-                   {currentView === ViewMode.STAFF && hasAccess('STAFF') && (
-                       <StaffManagement connection={selectedConnection} userSession={session} />
-                   )}
-                   {currentView === ViewMode.BRANCHES && hasAccess('SALES') && (
-                       <Dashboard 
-                           kpis={MOCK_KPIS} 
-                           salesData={MOCK_SALES_DATA} 
-                           topProducts={MOCK_TOP_PRODUCTS}
-                           inventory={MOCK_INVENTORY}
-                           branchKPIs={MOCK_BRANCHES}
-                           activeConnection={selectedConnection} 
-                           userSession={session}
-                       />
-                   )}
+        <main className="flex-1 overflow-y-auto bg-[#F8FAF9] flex flex-col pb-20 md:pb-0">
+          <div className="flex-1 p-4 md:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+              
+              {currentView === ViewMode.DASHBOARD && (
+                <Dashboard 
+                  orders={orders} 
+                  products={products} 
+                  clients={clients} 
+                  routes={routes}
+                  session={session} 
+                  onNavigate={setCurrentView}
+                  onConfirmOrder={handleConfirmOrder}
+                  onCancelOrder={handleCancelOrder}
+                  onAssignOrderToRoute={handleAssignOrderToRoute}
+                  onCreateRoute={handleCreateRoute}
+                />
+              )}
 
-                   {/* Admin Views */}
-                   {currentView === ViewMode.CLIENT_MANAGEMENT && session.role === 'ADMIN' && (
-                      <ClientManagement 
-                        clients={clients} 
-                        connections={connections} 
-                        onCreateClient={handleCreateClient}
-                        onUpdateClient={handleUpdateClient} 
-                        onDeleteClient={handleDeleteClient}
-                        onSimulateLogin={handleClientLogin}
-                      />
-                   )}
-                   {currentView === ViewMode.CONNECTION_MANAGEMENT && session.role === 'ADMIN' && (
-                      <ConnectionManager
-                        connections={connections}
-                        onAddConnection={handleAddConnection}
-                        onRemoveConnection={handleRemoveConnection}
-                        onUpdateStatus={handleUpdateConnectionStatus}
-                      />
-                   )}
+              {currentView === ViewMode.SELL_FIELD && (
+                <SellField
+                  products={products}
+                  clients={clients}
+                  orders={orders}
+                  routes={routes}
+                  session={session}
+                  onAddOrder={handleAddOrder}
+                  onNavigate={setCurrentView}
+                  onAddClient={handleAddClient}
+                  onUpdateClient={handleUpdateClient}
+                  onAddPayment={handleAddPayment}
+                  onClearBalance={handleClearBalance}
+                  onConfirmOrder={handleConfirmOrder}
+                  onCancelOrder={handleCancelOrder}
+                  onDeliverOrder={handleDeliverOrder}
+                  onAssignOrderToRoute={handleAssignOrderToRoute}
+                  onCreateRoute={handleCreateRoute}
+                />
+              )}
 
-                   {/* ACCESS DENIED FALLBACK */}
-                   {((session.role === 'CLIENT' && !hasAccess('DASHBOARD') && currentView === ViewMode.DASHBOARD) || 
-                     (currentView !== ViewMode.CLIENT_MANAGEMENT && currentView !== ViewMode.CONNECTION_MANAGEMENT && !hasAccess(
-                         currentView === ViewMode.BRANCHES || currentView === ViewMode.CUSTOMERS ? 'SALES' :
-                         currentView === ViewMode.INVENTORY ? 'INVENTORY' :
-                         currentView === ViewMode.PRODUCTS ? 'PRODUCTS' :
-                         currentView === ViewMode.AGENDA ? 'AGENDA' :
-                         currentView === ViewMode.REPORTS ? 'REPORTS' :
-                         currentView === ViewMode.STAFF ? 'STAFF' : 'DASHBOARD'
-                     ))) && (
-                       <div className="flex flex-col items-center justify-center h-[50vh] text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200">
-                           <Lock size={48} className="text-gray-300 mb-4" />
-                           <h2 className="text-xl font-bold text-gray-700">Acceso Restringido</h2>
-                           <p className="text-gray-500 mt-2">No tienes permisos para ver este módulo.</p>
-                       </div>
-                   )}
-               </div>
-           </div>
-           
-           {/* Platform Footer */}
-           <div className="py-4 text-center text-xs text-gray-400 bg-white/50 border-t border-gray-200 hidden md:block">
-                Desarrollado por <a href="https://gaorsystem.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-odoo-primary font-bold hover:underline transition-colors">GaorSystem Perú</a>
-           </div>
+              {currentView === ViewMode.ROUTES && (
+                <RoutesView
+                  routes={routes}
+                  orders={orders}
+                  onCreateRoute={handleCreateRoute}
+                  onAssignOrderToRoute={handleAssignOrderToRoute}
+                  onCompleteRoute={handleCompleteRoute}
+                />
+              )}
+
+              {currentView === ViewMode.INVENTORY && (
+                <InventoryView
+                  products={products}
+                  session={session}
+                  onUpdateStock={handleUpdateStock}
+                  onAddProduct={handleAddProduct}
+                />
+              )}
+
+              {currentView === ViewMode.PAYMENTS && (
+                <PaymentsView
+                  payments={payments}
+                  clients={clients}
+                  onAddPayment={handleAddPayment}
+                  onClearBalance={handleClearBalance}
+                  session={session}
+                />
+              )}
+
+              {currentView === ViewMode.CLIENTS && (
+                <ClientsView
+                  clients={clients}
+                  onAddClient={handleAddClient}
+                  onDeleteClient={handleDeleteClient}
+                  session={session}
+                />
+              )}
+
+              {currentView === ViewMode.REPORTS && (
+                <ReportsView
+                  orders={orders}
+                  payments={payments}
+                  clients={clients}
+                  products={products}
+                  session={session}
+                />
+              )}
+
+            </div>
+          </div>
         </main>
 
-        {/* Mobile Bottom Navigation (Visible only on mobile) */}
         <MobileNavigation 
-            key={`mobilenav-${session.role}-${JSON.stringify(session.clientData?.allowedModules)}`}
-            currentView={currentView}
-            onNavigate={setCurrentView}
-            userRole={session.role}
-            allowedModules={session.clientData?.allowedModules}
-            onLogout={handleLogout}
+          currentView={currentView} 
+          onNavigate={setCurrentView} 
+          session={session}
+          onLogout={handleLogout} 
         />
       </div>
     </div>

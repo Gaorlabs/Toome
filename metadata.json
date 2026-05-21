@@ -1,5 +1,8 @@
 {
-  "name": "Toome",
-  "description": "Plataforma de análisis multi-compañía con gestión de accesos y visualización de datos Odoo.",
-  "requestFramePermissions": []
+  "name": "Toome - Ventas en Campo y Rutas",
+  "description": "Sistema de gestión para ventas en campo de distribuidores, toma de pedidos en tiendas, control de inventario, registro de pagos y optimización de rutas de despacho.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

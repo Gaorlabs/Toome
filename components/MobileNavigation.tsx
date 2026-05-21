@@ -1,154 +1,153 @@
-
-import React, { useState, useEffect } from 'react';
-import { ViewMode, UserRole, AppModule } from '../types';
-import { LayoutDashboard, Package, ShoppingCart, Menu, X, Calendar, FileText, Users, TrendingUp, ShieldCheck, Database, LogOut, Store, Home } from 'lucide-react';
+import React, { useState } from 'react';
+import { ViewMode, UserSession } from '../types';
+import { LayoutDashboard, Compass, Briefcase, Box, PiggyBank, Store, BarChart3, LogOut, Menu, X, FileSpreadsheet, Network } from 'lucide-react';
 
 interface MobileNavigationProps {
   currentView: ViewMode;
   onNavigate: (view: ViewMode) => void;
-  userRole: UserRole;
-  allowedModules?: AppModule[];
+  session: UserSession;
   onLogout: () => void;
 }
 
-export const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentView, onNavigate, userRole, allowedModules, onLogout }) => {
+export const MobileNavigation: React.FC<MobileNavigationProps> = ({
+  currentView,
+  onNavigate,
+  session,
+  onLogout
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isAdmin = session.role === 'ADMIN';
 
-  // Helper to safely check permissions
-  const hasAccess = (targetModule: AppModule) => {
-      if (userRole === 'ADMIN') return true;
-      if (!allowedModules || !Array.isArray(allowedModules)) return false;
-      return allowedModules.includes(targetModule);
-  };
-
-  // Primary Tabs (Bottom Bar) - Mapped explicitly
-  const mainTabs = [
-    { id: ViewMode.DASHBOARD, label: 'Inicio', icon: Home, module: 'DASHBOARD' as AppModule },
-    { id: ViewMode.CUSTOMERS, label: 'Ventas', icon: ShoppingCart, module: 'SALES' as AppModule },
-    { id: ViewMode.INVENTORY, label: 'Stock', icon: Package, module: 'INVENTORY' as AppModule },
+  // Quick navigation tabs at the bottom bar
+  const quickTabs = [
+    { id: ViewMode.DASHBOARD, label: 'Inicio', icon: LayoutDashboard, roles: ['ADMIN', 'SELLER'] },
+    { id: ViewMode.SELL_FIELD, label: 'PEDIDO', icon: Briefcase, roles: ['SELLER', 'ADMIN'] },
+    { id: ViewMode.INVENTORY, label: 'Kardex', icon: Box, roles: ['ADMIN', 'SELLER'] },
   ];
 
-  // Secondary Menu Items (Drawer) - Mapped explicitly
-  const menuItems = [
-    { id: ViewMode.BRANCHES, label: 'Cajas y Sedes', icon: Store, module: 'SALES' as AppModule }, // Changed to SALES to match Sidebar
-    { id: ViewMode.AGENDA, label: 'Agenda', icon: Calendar, module: 'AGENDA' as AppModule },
-    { id: ViewMode.PRODUCTS, label: 'Rentabilidad', icon: TrendingUp, module: 'PRODUCTS' as AppModule },
-    { id: ViewMode.REPORTS, label: 'Reportes', icon: FileText, module: 'REPORTS' as AppModule },
-    { id: ViewMode.STAFF, label: 'Personal', icon: Users, module: 'STAFF' as AppModule },
+  const visibleTabs = quickTabs.filter(tab => tab.roles.includes(session.role));
+
+  const allMenuOptions = [
+    { id: ViewMode.DASHBOARD, label: 'Resumen Diario', icon: LayoutDashboard, roles: ['ADMIN', 'SELLER'] },
+    { id: ViewMode.SELL_FIELD, label: 'Toma de Pedidos (PEDIDO)', icon: Briefcase, roles: ['SELLER', 'ADMIN'] },
+    { id: ViewMode.ROUTES, label: 'Rutas por Zona', icon: Compass, roles: ['ADMIN'] },
+    { id: ViewMode.INVENTORY, label: 'Inventario Kardex', icon: Box, roles: ['ADMIN', 'SELLER'] },
+    { id: ViewMode.PAYMENTS, label: 'Gestión de Pagos', icon: PiggyBank, roles: ['ADMIN', 'SELLER'] },
+    { id: ViewMode.CLIENTS, label: 'Clientes / Tiendas', icon: Store, roles: ['ADMIN', 'SELLER'] },
+    { id: ViewMode.REPORTS, label: 'Estadísticas Comerciales', icon: BarChart3, roles: ['ADMIN'] }
   ];
 
-  const adminItems = [
-    { id: ViewMode.CLIENT_MANAGEMENT, label: 'Accesos', icon: ShieldCheck },
-    { id: ViewMode.CONNECTION_MANAGEMENT, label: 'Conexiones', icon: Database },
-  ];
+  const visibleMenuItems = allMenuOptions.filter(item => item.roles.includes(session.role));
 
   const handleNav = (id: ViewMode) => {
-      onNavigate(id);
-      setIsMenuOpen(false);
+    onNavigate(id);
+    setIsMenuOpen(false);
   };
-
-  // Pre-filter items to ensure render consistency
-  const visibleMainTabs = mainTabs.filter(t => hasAccess(t.module));
-  const visibleMenuItems = menuItems.filter(i => hasAccess(i.module));
 
   return (
     <>
-      {/* Bottom Bar - Fixed */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe shadow-lg">
+      {/* Bottom Bar for Mobile Devices */}
+      <div className="md:hidden fixed bottom-1 left-3 right-3 bg-slate-900 border border-slate-800 z-50 rounded-2xl pb-1 shadow-2xl">
         <div className="flex justify-around items-center h-16">
-          {visibleMainTabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleNav(tab.id)}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${currentView === tab.id && !isMenuOpen ? 'text-odoo-primary' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <tab.icon size={24} strokeWidth={currentView === tab.id && !isMenuOpen ? 2.5 : 2} />
-              <span className="text-[10px] font-medium tracking-wide">{tab.label}</span>
-            </button>
-          ))}
+          {visibleTabs.map(tab => {
+            const isSellField = tab.id === ViewMode.SELL_FIELD;
+            const isTabActive = currentView === tab.id && !isMenuOpen;
+
+            if (isSellField) {
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleNav(tab.id)}
+                  className={`flex flex-col items-center justify-center -translate-y-4 w-15 h-15 rounded-full shadow-lg transition-transform duration-150 active:scale-95 ${
+                    isTabActive 
+                      ? 'bg-[#017E84] text-white ring-4 ring-slate-900 border-2 border-teal-300' 
+                      : 'bg-emerald-500 text-white hover:bg-emerald-600 ring-4 ring-slate-900 shadow-[#10b981]/25 shadow-xl'
+                  }`}
+                  style={{ minWidth: '3.75rem', minHeight: '3.75rem' }}
+                >
+                  <tab.icon size={20} className="animate-pulse" />
+                  <span className="text-[9px] tracking-tight font-black uppercase mt-0.5">PEDIDO</span>
+                </button>
+              );
+            }
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleNav(tab.id)}
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                  isTabActive ? 'text-teal-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <tab.icon size={22} />
+                <span className="text-[10px] tracking-wide font-medium">{tab.label}</span>
+              </button>
+            );
+          })}
           <button
             onClick={() => setIsMenuOpen(true)}
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isMenuOpen ? 'text-odoo-primary' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+              isMenuOpen ? 'text-teal-400' : 'text-slate-400 hover:text-slate-200'
+            }`}
           >
-            <Menu size={24} strokeWidth={isMenuOpen ? 2.5 : 2} />
-            <span className="text-[10px] font-medium tracking-wide">Menú</span>
+            <Menu size={22} />
+            <span className="text-[10px] tracking-wide font-medium">Menú</span>
           </button>
         </div>
       </div>
 
-      {/* Full Screen Menu Overlay (Drawer) */}
+      {/* Full Screen Drawer */}
       {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 bg-[#F9FAFB] z-50 animate-fade-in flex flex-col">
-           {/* Menu Header */}
-           <div className="bg-white px-6 py-4 flex justify-between items-center shadow-sm sticky top-0 z-10">
-               <h2 className="text-xl font-bold text-gray-800">Menú Principal</h2>
-               <button 
-                onClick={() => setIsMenuOpen(false)} 
-                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-               >
-                   <X size={20} className="text-gray-600"/>
-               </button>
-           </div>
-           
-           <div className="p-6 space-y-8 overflow-y-auto flex-1 pb-24">
-               {/* Modules Grid */}
-               <div>
-                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Módulos Disponibles</h3>
-                   {visibleMenuItems.length > 0 ? (
-                       <div className="grid grid-cols-2 gap-4">
-                           {visibleMenuItems.map(item => (
-                               <button
-                                 key={item.id}
-                                 onClick={() => handleNav(item.id)}
-                                 className={`flex flex-col items-center p-5 bg-white border rounded-2xl shadow-sm active:scale-95 transition-all ${currentView === item.id ? 'border-odoo-primary ring-2 ring-odoo-primary/20' : 'border-gray-100'}`}
-                               >
-                                   <div className={`p-3.5 rounded-full mb-3 ${currentView === item.id ? 'bg-odoo-primary/10 text-odoo-primary' : 'bg-gray-50 text-gray-500'}`}>
-                                       <item.icon size={26} />
-                                   </div>
-                                   <span className="text-sm font-bold text-gray-700">{item.label}</span>
-                               </button>
-                           ))}
-                       </div>
-                   ) : (
-                       <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-xl">
-                           No tienes acceso a módulos adicionales.
-                       </p>
-                   )}
-               </div>
+        <div className="md:hidden fixed inset-0 bg-slate-950 z-50 flex flex-col animate-fade-in text-slate-100">
+          <div className="px-6 py-4 flex justify-between items-center bg-slate-900 border-b border-slate-800">
+            <div>
+              <h2 className="text-lg font-extrabold text-white">Toome Campo</h2>
+              <p className="text-[10px] text-teal-400 font-bold mt-0.5 tracking-wider uppercase">Preventa & Distribución</p>
+            </div>
+            <button 
+              onClick={() => setIsMenuOpen(false)} 
+              className="p-1.5 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors"
+            >
+              <X size={20} className="text-slate-300" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-24">
+            {/* Session Summary */}
+            <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-1">
+              <span className="text-[9px] font-bold text-slate-400 tracking-wider block uppercase">Usuario en Sesión</span>
+              <span className="text-sm font-bold text-white block">{session.name}</span>
+              <span className="text-xs text-teal-400 font-medium">{session.role === 'ADMIN' ? 'Administrador General' : 'Preventista en Campo'}</span>
+            </div>
 
-               {/* Admin Section */}
-               {userRole === 'ADMIN' && (
-                   <div>
-                       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Administración</h3>
-                       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                           {adminItems.map((item, idx) => (
-                               <button
-                                 key={item.id}
-                                 onClick={() => handleNav(item.id)}
-                                 className={`w-full flex items-center p-4 text-left hover:bg-gray-50 active:bg-gray-100 transition-colors ${idx !== adminItems.length - 1 ? 'border-b border-gray-100' : ''}`}
-                               >
-                                   <div className="bg-odoo-secondary/10 p-2 rounded-lg mr-4 text-odoo-secondary">
-                                       <item.icon size={20} />
-                                   </div>
-                                   <span className="text-sm font-bold text-gray-700">{item.label}</span>
-                               </button>
-                           ))}
-                       </div>
-                   </div>
-               )}
+            <div>
+              <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-3">Módulos de Trabajo</h3>
+              <div className="grid grid-cols-2 gap-3.5">
+                {visibleMenuItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNav(item.id)}
+                    className={`flex flex-col items-center p-4 rounded-xl border transition-all text-center ${
+                      currentView === item.id 
+                        ? 'bg-teal-500 border-teal-400 text-white font-bold' 
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <item.icon size={22} className="mb-2 shrink-0" />
+                    <span className="text-xs font-semibold leading-tight">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-               {/* Logout Button */}
-               <button 
-                 onClick={() => { setIsMenuOpen(false); onLogout(); }}
-                 className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 border border-red-100 shadow-sm active:scale-95 transition-transform"
-               >
-                   <LogOut size={20} /> Cerrar Sesión
-               </button>
-               
-               <div className="text-center text-xs text-gray-300 pt-2">
-                   Toome Mobile v1.2 &bull; GaorSystem
-               </div>
-           </div>
+            <button 
+              onClick={() => { setIsMenuOpen(false); onLogout(); }}
+              className="w-full bg-rose-950/40 text-rose-400 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 border border-rose-900/30 transition-colors"
+            >
+              <LogOut size={18} />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
         </div>
       )}
     </>

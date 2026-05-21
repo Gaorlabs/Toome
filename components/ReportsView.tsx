@@ -1,330 +1,280 @@
-
-import React, { useState, useEffect } from 'react';
-import { FileText, Download, BarChart, Calendar, Printer, BookOpen, Truck, Loader2, AlertCircle, ShoppingBag, PieChart, DollarSign, ArrowLeft, RefreshCw, Filter, Search, Table } from 'lucide-react';
-import { OdooConnection, UserSession } from '../types';
+import React, { useState, useMemo } from 'react';
 import { 
-    fetchSalesRegister, 
-    fetchInventoryValuation, 
-    fetchAccountsReceivable,
-    fetchCashClosingReport,
-    fetchPaymentAnalysis,
-    fetchProductProfitabilityReport
-} from '../services/odooBridge';
-import * as XLSX from 'xlsx';
+  BarChart as RechartBar, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, Cell, PieChart as RechartPie, Pie, Legend
+} from 'recharts';
+import { 
+  FileText, Download, Printer, CircleDollarSign, Compass, Store, 
+  User, Sparkles, TrendingUp, Landmark, Award
+} from 'lucide-react';
+import { Order, PaymentRecord, ClientStore, Product } from '../types';
 
 interface ReportsViewProps {
-    connection?: OdooConnection | null;
-    userSession?: UserSession | null;
+  orders: Order[];
+  payments: PaymentRecord[];
+  clients: ClientStore[];
+  products: Product[];
+  session: { role: 'ADMIN' | 'SELLER'; name: string };
 }
 
-interface ReportDefinition {
-    id: number;
-    title: string;
-    desc: string;
-    icon: any;
-    color: string;
-    bg: string;
-}
+export const ReportsView: React.FC<ReportsViewProps> = ({
+  orders,
+  payments,
+  clients,
+  products,
+  session
+}) => {
+  const isAdmin = session.role === 'ADMIN';
 
-export const ReportsView: React.FC<ReportsViewProps> = ({ connection, userSession }) => {
-  const [selectedReport, setSelectedReport] = useState<ReportDefinition | null>(null);
-  
-  // Data State
-  const [reportData, setReportData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Filters
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 7) + '-01');
-  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
-  const [searchTerm, setSearchTerm] = useState('');
+  // 1. Calculate Revenue by Zone
+  const zoneSalesData = useMemo(() => {
+    const zoneMap: Record<string, number> = {};
+    orders.filter(o => o.status !== 'CANCELLED').forEach(o => {
+      const z = o.storeZone || 'Zona General';
+      zoneMap[z] = (zoneMap[z] || 0) + o.total;
+    });
+    return Object.keys(zoneMap).map(k => ({
+      name: k,
+      total: Math.round(zoneMap[k] * 100) / 100
+    }));
+  }, [orders]);
 
-  const reportTypes: ReportDefinition[] = [
-      { id: 1, title: 'Cierre de Caja Z (SUNAT)', desc: 'Resumen diario de ventas por sesión y arqueo de caja.', icon: Printer, color: 'text-blue-600', bg: 'bg-blue-50' },
-      { id: 2, title: 'Libro de Ventas (PLE)', desc: 'Generación de archivo para auditoría contable.', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50' },
-      { id: 3, title: 'Kardex Valorizado', desc: 'Control de inventario físico y valorizado por almacén.', icon: Truck, color: 'text-orange-600', bg: 'bg-orange-50' },
-      { id: 4, title: 'Análisis de Medios de Pago', desc: 'Desglose detallado de transacciones por método.', icon: PieChart, color: 'text-teal-600', bg: 'bg-teal-50' },
-      { id: 5, title: 'Rentabilidad por Producto', desc: 'Margen bruto descontando costos actualizados.', icon: ShoppingBag, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-      { id: 6, title: 'Cuentas por Cobrar', desc: 'Facturas pendientes de pago y antigüedad de deuda.', icon: DollarSign, color: 'text-red-600', bg: 'bg-red-50' },
-  ];
+  // 2. Calculate Revenue by Payment Channel (YAPE, CASH, etc.)
+  const channelData = useMemo(() => {
+    const channelMap: Record<string, number> = {
+      'EFECTIVO': 0,
+      'YAPE / PLIN': 0,
+      'TRANSFERENCIA': 0,
+      'TARJETA P.O.S.': 0
+    };
 
-  useEffect(() => {
-      setReportData([]);
-      setError(null);
-      setSearchTerm('');
-      if (selectedReport && connection) {
-          fetchData(); 
+    payments.filter(p => p.approvedByAdmin).forEach(p => {
+      if (p.paymentMethod === 'CASH') channelMap['EFECTIVO'] += p.amount;
+      else if (p.paymentMethod === 'YAPE') channelMap['YAPE / PLIN'] += p.amount;
+      else if (p.paymentMethod === 'TRANSFER') channelMap['TRANSFERENCIA'] += p.amount;
+      else if (p.paymentMethod === 'CREDIT_CARD') channelMap['TARJETA P.O.S.'] += p.amount;
+    });
+
+    return Object.keys(channelMap).map(k => ({
+      name: k,
+      value: Math.round(channelMap[k] * 100) / 100
+    })).filter(c => c.value > 0);
+  }, [payments]);
+
+  // 3. Calculate Seller Performance (Preventista leaderboard)
+  const sellerLeaderboard = useMemo(() => {
+    const sellerMap: Record<string, { totalSales: number, count: number }> = {};
+    orders.filter(o => o.status !== 'CANCELLED').forEach(o => {
+      if (!sellerMap[o.sellerName]) {
+        sellerMap[o.sellerName] = { totalSales: 0, count: 0 };
       }
-  }, [selectedReport]);
+      sellerMap[o.sellerName].totalSales += o.total;
+      sellerMap[o.sellerName].count += 1;
+    });
 
-  const fetchData = async () => {
-      if (!connection || !selectedReport) return;
-      
-      setLoading(true);
-      setError(null);
-      const allowedCompanies = userSession?.clientData?.allowedCompanyIds;
+    return Object.keys(sellerMap).map(k => ({
+      name: k,
+      sales: Math.round(sellerMap[k].totalSales * 100) / 100,
+      ordersCount: sellerMap[k].count
+    })).sort((a, b) => b.sales - a.sales);
+  }, [orders]);
 
-      try {
-          let data: any[] = [];
-          switch (selectedReport.id) {
-              case 1: data = await fetchCashClosingReport(connection, startDate, endDate, allowedCompanies); break;
-              case 2: data = await fetchSalesRegister(connection, startDate, endDate, allowedCompanies); break;
-              case 3: data = await fetchInventoryValuation(connection, allowedCompanies); break;
-              case 4: data = await fetchPaymentAnalysis(connection, startDate, endDate, allowedCompanies); break;
-              case 5: data = await fetchProductProfitabilityReport(connection, startDate, endDate, allowedCompanies); break;
-              case 6: data = await fetchAccountsReceivable(connection, allowedCompanies); break;
-          }
-          setReportData(data);
-      } catch (e) {
-          console.error(e);
-          setError("Error al obtener los datos. Verifique su conexión.");
-      } finally {
-          setLoading(false);
-      }
+  // General statistics calculations
+  const totalSalesAll = orders.filter(o => o.status !== 'CANCELLED').reduce((sum, o) => sum + o.total, 0);
+  const totalPaidAll = payments.reduce((sum, p) => sum + p.amount, 0);
+  const outstandingDebtAll = clients.reduce((sum, c) => sum + c.outstandingBalance, 0);
+
+  const COLORS = ['#017E84', '#F43F5E', '#10B981', '#F59E0B', '#6366F1'];
+
+  const handlePrint = () => {
+    window.print();
   };
 
-  const handleExport = () => {
-      if (reportData.length === 0) return;
-      const ws = XLSX.utils.json_to_sheet(reportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-      XLSX.writeFile(wb, `${selectedReport?.title.replace(/\s/g, '_')}_${startDate}.xlsx`);
-  };
-
-  // --- Dynamic Summary Calculation ---
-  const getSummaryMetrics = () => {
-      if (reportData.length === 0) return null;
-      
-      const count = reportData.length;
-      let totalAmount = 0;
-      let label = 'Monto Total';
-
-      const sample = reportData[0];
-      if ('totalAmount' in sample) totalAmount = reportData.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
-      else if ('totalValue' in sample) { totalAmount = reportData.reduce((acc, curr) => acc + (curr.totalValue || 0), 0); label = 'Valorizado Total'; }
-      else if ('amountDue' in sample) { totalAmount = reportData.reduce((acc, curr) => acc + (curr.amountDue || 0), 0); label = 'Deuda Total'; }
-      else if ('amount' in sample) totalAmount = reportData.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-      else if ('totalSales' in sample) totalAmount = reportData.reduce((acc, curr) => acc + (curr.totalSales || 0), 0);
-
-      return { count, totalAmount, label };
-  };
-
-  const summary = getSummaryMetrics();
-
-  const getHeaders = () => {
-      if (reportData.length === 0) return [];
-      return Object.keys(reportData[0]).filter(k => typeof reportData[0][k] !== 'object' || reportData[0][k] === null);
-  };
-
-  const filteredData = reportData.filter(row => 
-      JSON.stringify(row).toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // VIEW 1: GALLERY
-  if (!selectedReport) {
-      return (
-        <div className="space-y-6 animate-fade-in pb-10">
-            <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Centro de Reportes</h2>
-                    <p className="text-gray-500 text-sm">Selecciona un módulo para visualizar, filtrar y exportar datos.</p>
-                </div>
-            </div>
-
-            {!connection && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4 rounded-r-lg">
-                    <p className="text-sm text-yellow-700 font-medium">
-                        <AlertCircle className="inline mr-2" size={16}/>
-                        Conecta una base de datos Odoo para acceder a los reportes.
-                    </p>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {reportTypes.map((report) => (
-                    <button 
-                        key={report.id} 
-                        onClick={() => setSelectedReport(report)}
-                        disabled={!connection}
-                        className="group bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-odoo-primary/30 transition-all text-left flex flex-col justify-between h-48 relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full ${report.bg} transition-transform group-hover:scale-150`}></div>
-                        
-                        <div className="relative z-10">
-                            <div className={`w-12 h-12 rounded-xl ${report.bg} ${report.color} flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
-                                <report.icon size={24} />
-                            </div>
-                            <h3 className="font-bold text-gray-800 text-lg group-hover:text-odoo-primary transition-colors">{report.title}</h3>
-                            <p className="text-sm text-gray-500 mt-2 leading-relaxed">{report.desc}</p>
-                        </div>
-                        
-                        <div className="relative z-10 flex items-center text-xs font-bold text-gray-400 group-hover:text-odoo-primary mt-auto pt-4 uppercase tracking-wide">
-                            <span>Explorar Datos</span>
-                            <ArrowLeft className="ml-2 rotate-180 transition-transform group-hover:translate-x-1" size={14} />
-                        </div>
-                    </button>
-                ))}
-            </div>
-        </div>
-      );
-  }
-
-  // VIEW 2: DETAIL
   return (
-      <div className="space-y-6 animate-fade-in h-full flex flex-col">
-          {/* Header Bar - Responsive Stacking */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-              <div className="flex items-center gap-3 w-full xl:w-auto">
-                  <button 
-                    onClick={() => setSelectedReport(null)}
-                    className="p-2 shrink-0 hover:bg-gray-100 rounded-full text-gray-500 hover:text-odoo-primary transition-colors"
-                  >
-                      <ArrowLeft size={24} />
-                  </button>
-                  <div className="flex items-center gap-3 overflow-hidden">
-                      <div className={`p-2 rounded-lg shrink-0 ${selectedReport.bg} ${selectedReport.color}`}>
-                          <selectedReport.icon size={24} />
-                      </div>
-                      <div className="min-w-0">
-                          <h2 className="text-lg md:text-xl font-bold text-gray-800 leading-none truncate">{selectedReport.title}</h2>
-                          <p className="text-xs text-gray-400 mt-1 truncate">Previsualización y Exportación</p>
-                      </div>
-                  </div>
-              </div>
+    <div className="space-y-6 animate-fade-in pb-12 font-sans print:bg-white print:p-8">
+      
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
+        <div>
+          <h5 className="text-[10px] font-bold text-[#017E84] tracking-widest uppercase mb-1 flex items-center gap-1.5">
+            <FileText size={13} /> CENTRO DE BI & REPORTES
+          </h5>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">
+            Inteligencia y Rendimiento Comercial
+          </h1>
+          <p className="text-xs text-slate-400">Análisis continuo de preventistas, canales de recaudación financiera y mapas de demanda zonal.</p>
+        </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto items-stretch sm:items-center">
-                   {selectedReport.id !== 3 && (
-                       <div className="flex flex-col sm:flex-row items-center bg-gray-50 rounded-lg p-1 border border-gray-200 w-full sm:w-auto">
-                           <div className="flex items-center px-2 py-2 sm:py-0 border-b sm:border-b-0 sm:border-r border-gray-200 w-full sm:w-auto">
-                               <Calendar size={14} className="text-gray-400 mr-2 shrink-0"/>
-                               <input 
-                                   type="date" 
-                                   value={startDate}
-                                   onChange={(e) => setStartDate(e.target.value)}
-                                   className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-full sm:w-28"
-                               />
-                           </div>
-                           <div className="flex items-center px-2 py-2 sm:py-0 w-full sm:w-auto">
-                               <span className="text-gray-400 text-xs mr-2 shrink-0 hidden sm:inline">a</span>
-                               <span className="text-gray-400 text-xs mr-2 shrink-0 sm:hidden">Hasta</span>
-                               <input 
-                                   type="date" 
-                                   value={endDate}
-                                   onChange={(e) => setEndDate(e.target.value)}
-                                   className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none w-full sm:w-28"
-                               />
-                           </div>
-                       </div>
-                   )}
-                   
-                   <button 
-                       onClick={fetchData}
-                       disabled={loading}
-                       className="flex justify-center items-center gap-2 bg-odoo-primary text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-odoo-primaryDark transition-all shadow-sm active:scale-95 disabled:opacity-50 w-full sm:w-auto"
-                   >
-                       <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                       {loading ? 'Cargando...' : 'Actualizar'}
-                   </button>
-              </div>
-          </div>
-
-          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-              {summary && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up">
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                          <div>
-                              <p className="text-xs font-bold text-gray-400 uppercase">Registros</p>
-                              <p className="text-2xl font-bold text-gray-800">{summary.count}</p>
-                          </div>
-                          <div className="p-3 bg-gray-50 rounded-full text-gray-400"><Table size={20} /></div>
-                      </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between md:col-span-2">
-                          <div>
-                              <p className="text-xs font-bold text-gray-400 uppercase">{summary.label}</p>
-                              <p className="text-xl md:text-2xl font-bold text-odoo-primary truncate">
-                                  {summary.totalAmount > 0 
-                                    ? `S/ ${summary.totalAmount.toLocaleString('es-PE', { minimumFractionDigits: 2 })}` 
-                                    : '---'}
-                              </p>
-                          </div>
-                          <div className="p-3 bg-odoo-primary/10 rounded-full text-odoo-primary"><DollarSign size={20} /></div>
-                      </div>
-                  </div>
-              )}
-
-              <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col relative">
-                  
-                  <div className="p-3 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
-                      <div className="relative w-full sm:w-64">
-                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input 
-                              type="text" 
-                              placeholder="Filtrar resultados..." 
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-odoo-primary outline-none"
-                          />
-                      </div>
-                      <button 
-                          onClick={handleExport}
-                          disabled={reportData.length === 0}
-                          className="flex w-full sm:w-auto justify-center items-center gap-2 text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-md text-xs font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
-                      >
-                          <Download size={14} /> Exportar Excel
-                      </button>
-                  </div>
-
-                  {/* Horizontal Scroll wrapper for Table */}
-                  <div className="flex-1 overflow-auto">
-                      {loading ? (
-                          <div className="h-full flex flex-col items-center justify-center text-gray-400 min-h-[200px]">
-                              <Loader2 size={40} className="animate-spin mb-4 text-odoo-primary" />
-                              <p className="text-sm font-medium">Procesando datos desde Odoo...</p>
-                          </div>
-                      ) : reportData.length === 0 ? (
-                          <div className="h-full flex flex-col items-center justify-center text-gray-300 min-h-[200px]">
-                              <FileText size={48} className="mb-2 opacity-50" />
-                              <p className="text-sm">No se encontraron datos para los filtros seleccionados.</p>
-                          </div>
-                      ) : (
-                          <div className="inline-block min-w-full align-middle">
-                              <table className="min-w-full text-xs text-left text-gray-600">
-                                  <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
-                                      <tr>
-                                          <th className="px-4 py-3 font-bold text-gray-500 w-12 text-center">#</th>
-                                          {getHeaders().map((header) => (
-                                              <th key={header} className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                                  {header.replace(/([A-Z])/g, ' $1').trim()}
-                                              </th>
-                                          ))}
-                                      </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-100">
-                                      {filteredData.slice(0, 100).map((row, idx) => (
-                                          <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
-                                              <td className="px-4 py-2 text-center text-gray-300 font-mono">{idx + 1}</td>
-                                              {getHeaders().map((header) => (
-                                                  <td key={header} className="px-4 py-2 whitespace-nowrap">
-                                                      {typeof row[header] === 'number' 
-                                                          ? row[header].toLocaleString() 
-                                                          : String(row[header] || '-')}
-                                                  </td>
-                                              ))}
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
-                          </div>
-                      )}
-                  </div>
-                  
-                  {filteredData.length > 100 && (
-                      <div className="bg-yellow-50 p-2 text-center text-[10px] text-yellow-700 font-medium border-t border-yellow-100">
-                          Mostrando primeros 100 registros. Exporte a Excel para ver la data completa ({reportData.length} filas).
-                      </div>
-                  )}
-              </div>
-          </div>
+        <button
+          onClick={handlePrint}
+          className="bg-slate-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all self-start sm:self-center"
+        >
+          <Printer size={15} />
+          <span>Imprimir Reporte</span>
+        </button>
       </div>
+
+      {/* Numerical Indicators */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-spreadsheet flex justify-between items-center">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Ventas Acumuladas</span>
+            <h3 className="text-2xl font-black text-slate-800">S/ {totalSalesAll.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</h3>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl text-slate-600">
+            <TrendingUp size={22} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-spreadsheet flex justify-between items-center">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Abonos Consolidados</span>
+            <h3 className="text-2xl font-black text-emerald-600">S/ {totalPaidAll.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</h3>
+          </div>
+          <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+            <Landmark size={22} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-spreadsheet flex justify-between items-center">
+          <div className="space-y-1">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Deuda Viva de Clientes En Calle</span>
+            <h3 className="text-2xl font-black text-rose-500">S/ {outstandingDebtAll.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</h3>
+          </div>
+          <div className="p-3 bg-rose-50 rounded-xl text-rose-500">
+            <CircleDollarSign size={22} />
+          </div>
+        </div>
+
+      </div>
+
+      {/* Main Charts area */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* District sales geography */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-spreadsheet space-y-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Demanda Territorial por Distritos</h3>
+            <p className="text-xs text-slate-400">Total Soles neto emitidos de preventa</p>
+          </div>
+
+          <div className="h-64">
+            {zoneSalesData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartBar data={zoneSalesData} margin={{ left: -20, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" fontSize={11} stroke="#94a3b8" />
+                  <YAxis fontSize={11} stroke="#94a3b8" />
+                  <Tooltip contentStyle={{ fontSize: '11px' }} />
+                  <RechartBar dataKey="total" fill="#017E84" radius={[4, 4, 0, 0]}>
+                    {zoneSalesData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </RechartBar>
+                </RechartBar>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">
+                Aún no hay pedidos para catalogar por distrito.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Collection methods breakdown */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-spreadsheet space-y-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Análisis de Medios de Recaudación</h3>
+            <p className="text-xs text-slate-400">Distribución porcentual por canal</p>
+          </div>
+
+          <div className="h-64 flex flex-col sm:flex-row items-center gap-4 justify-center">
+            {channelData.length > 0 ? (
+              <>
+                <div className="w-1/2 h-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartPie>
+                      <Pie
+                        data={channelData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={3}
+                      >
+                        {channelData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ fontSize: '11px' }} />
+                    </RechartPie>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="space-y-2 text-xs text-slate-600 shrink-0">
+                  {channelData.map((entry, index) => (
+                    <div key={entry.name} className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
+                      <span className="font-medium text-slate-500">{entry.name}:</span>
+                      <span className="font-extrabold text-slate-800">S/ {entry.value.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">
+                 Sin recaudador verificado para graficar.
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Preventistas performance leaderboard \& historic summaries */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-spreadsheet p-6">
+        <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+          <Award size={16} className="text-[#017E84]" /> Rank General de Preventistas de Campo
+        </h3>
+        <p className="text-xs text-slate-400 mb-5">Venta total tomada por consultor y volumen de cobertura de visitas físicas</p>
+
+        {sellerLeaderboard.length > 0 ? (
+          <div className="space-y-4 max-w-2xl">
+            {sellerLeaderboard.map((seller, index) => (
+              <div key={seller.name} className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs ${
+                    index === 0 
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                      : index === 1
+                      ? 'bg-slate-200 text-slate-800'
+                      : 'bg-white text-slate-500 border border-slate-150'
+                  }`}>
+                    {index + 1}
+                  </span>
+
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm leading-tight">{seller.name}</h4>
+                    <p className="text-xxs text-slate-400 mt-0.5">{seller.ordersCount} visitas efectivas con venta</p>
+                  </div>
+                </div>
+
+                <span className="font-black text-[#017E84] text-sm shrink-0">
+                  S/ {seller.sales.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center text-slate-400 italic text-xs">
+            Ningún preventista ha registrado pedidos de campo hoy.
+          </div>
+        )}
+      </div>
+
+    </div>
   );
 };

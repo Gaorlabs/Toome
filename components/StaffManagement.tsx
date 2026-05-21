@@ -62,7 +62,11 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
 
   const loadEmployees = async () => {
     setLoading(true);
-    const allowedCompanies = userSession?.clientData?.allowedCompanyIds;
+    
+    let allowedCompanies: string[] | undefined = undefined;
+    if (userSession?.role === 'CLIENT') {
+        allowedCompanies = userSession.clientData?.allowedCompanyIds || [];
+    }
     
     // 1. Fetch Basic from Odoo
     const odooData = await fetchEmployees(connection!, allowedCompanies);
@@ -773,13 +777,8 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ connection, us
               </div>
           </div>
       )}
-
-      {/* MODAL: SHIFT MANAGER */}
-      {/* ... (Same modal code) ... */}
-      {/* MODAL: EMPLOYEE PROFILE (FICHA) */}
-      {/* ... (Same modal code) ... */}
       
-      {/* ... Re-insert Modals from previous code ... */}
+      {/* Modals are handled above via state */}
       {shiftModalOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-lg w-full max-w-sm overflow-hidden animate-slide-up">

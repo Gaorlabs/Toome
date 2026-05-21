@@ -41,7 +41,11 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
   const addConnection = (data: typeof form, isDemo = false) => {
     const newConn: OdooConnection = {
       id: Math.random().toString(36).substr(2, 9),
-      ...data,
+      name: data.name.trim(),
+      url: data.url.trim().replace(/\/+$/, ''), // Clean URL
+      db: data.db.trim(),
+      user: data.user.trim(),
+      apiKey: data.apiKey.trim(),
       status: isDemo ? 'CONNECTED' : 'PENDING',
       connectionMode: isDemo ? 'MOCK' : 'REAL',
       lastCheck: isDemo ? new Date().toLocaleString() : null,
@@ -68,7 +72,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
   const createFacturaClicConnection = () => {
       addConnection({
           name: 'Mi Tienda (FacturaClic)',
-          url: 'https://mitienda.facturaclic.pe/',
+          url: 'https://mitienda.facturaclic.pe',
           db: 'mitienda_base_ac',
           user: 'soporte@facturaclic.pe',
           apiKey: '3e77f817d6cc51db9ba2c503f8e86a8c0650329e'
@@ -78,7 +82,7 @@ export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ connection
   const createVidaConnection = () => {
       addConnection({
           name: 'Vida (FacturaClic)',
-          url: 'https://vida.facturaclic.pe/',
+          url: 'https://vida.facturaclic.pe',
           db: 'vida_master',
           user: 'soporte@facturaclic.pe',
           apiKey: '7a823daf061832dd8f01876a714da94f7e9c9355'
