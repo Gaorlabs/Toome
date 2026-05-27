@@ -31,6 +31,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     { id: ViewMode.DASHBOARD, label: 'Resumen Diario', icon: LayoutDashboard, roles: ['ADMIN', 'SELLER'] },
     { id: ViewMode.SELL_FIELD, label: 'Toma de Pedidos (PEDIDO)', icon: Briefcase, roles: ['SELLER', 'ADMIN'] },
     { id: ViewMode.ROUTES, label: 'Rutas por Zona', icon: Compass, roles: ['ADMIN'] },
+    { id: ViewMode.DRIVER_DELIVERY, label: 'Mi Ruta Hoy (Reparto)', icon: Network, roles: ['SELLER', 'ADMIN'] },
     { id: ViewMode.INVENTORY, label: 'Inventario Kardex', icon: Box, roles: ['ADMIN', 'SELLER'] },
     { id: ViewMode.PAYMENTS, label: 'Gestión de Pagos', icon: PiggyBank, roles: ['ADMIN', 'SELLER'] },
     { id: ViewMode.CLIENTS, label: 'Clientes / Tiendas', icon: Store, roles: ['ADMIN', 'SELLER'] },

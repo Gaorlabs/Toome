@@ -249,6 +249,36 @@ export const RoutesView: React.FC<RoutesViewProps> = ({
                   </div>
                 </div>
 
+                {route.gpsLat && route.gpsLng && (
+                  <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-2xl text-[11px] text-emerald-800">
+                    <div className="flex items-center gap-2 font-bold">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="tracking-wider uppercase text-[9px] font-black">REPARTIDOR EN VIVO</span>
+                    </div>
+                    <span className="font-mono text-[9px] bg-white text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                      📍 {route.gpsLat.toFixed(4)}, {route.gpsLng.toFixed(4)}
+                    </span>
+                  </div>
+                )}
+
+                {routeOrders.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      <span>Avance de Entregas</span>
+                      <span>{Math.round(((routeOrders.filter(o => o.status === 'DELIVERED' || o.status === 'FAILED' || o.status === 'CANCELLED').length) / routeOrders.length) * 100)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-teal-500 transition-all duration-500"
+                        style={{ width: `${((routeOrders.filter(o => o.status === 'DELIVERED' || o.status === 'FAILED' || o.status === 'CANCELLED').length) / routeOrders.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Orders assigned currently */}
                 <div className="space-y-2.5">
                   <div className="flex justify-between items-center text-[10px] text-slate-400 uppercase font-black tracking-wider">
@@ -258,33 +288,46 @@ export const RoutesView: React.FC<RoutesViewProps> = ({
 
                   {routeOrders.length > 0 ? (
                     <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar">
-                      {routeOrders.map((o, index) => (
-                        <div key={o.id} className="p-3 bg-white border border-slate-150/60 rounded-xl flex justify-between items-center text-xs group">
-                          <div className="flex gap-2.5 items-center">
-                            <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[9px] shrink-0">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <p className="font-bold text-slate-800 truncate max-w-[150px]">{o.storeName}</p>
-                              <p className="text-xxs text-slate-400">{o.storeAddress}</p>
-                            </div>
-                          </div>
+                      {routeOrders.map((o, index) => {
+                        const isDelivered = o.status === 'DELIVERED';
+                        const isFailed = o.status === 'FAILED' || o.status === 'CANCELLED';
 
-                          <div className="flex items-center gap-1.5 shrink-0 pl-2">
-                            <span className="font-extrabold text-slate-800 text-xxs">S/ {o.total.toFixed(2)}</span>
-                            {route.status !== 'COMPLETED' && (
-                              <button
-                                type="button"
-                                onClick={() => onAssignOrderToRoute(o.id, undefined)}
-                                className="text-slate-400 hover:text-rose-500 p-1 rounded-md"
-                                title="Quitar de esta ruta"
-                              >
-                                &times;
-                              </button>
-                            )}
+                        return (
+                          <div key={o.id} className={`p-3 bg-white border rounded-xl flex justify-between items-center text-xs group ${isDelivered ? 'border-emerald-200 bg-emerald-50/20' : isFailed ? 'border-rose-200 bg-rose-50/20' : 'border-slate-150/60'}`}>
+                            <div className="flex gap-2.5 items-center">
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${isDelivered ? 'bg-emerald-500 text-white' : isFailed ? 'bg-rose-500 text-white' : 'bg-slate-900 text-white'}`}>
+                                {isDelivered ? '✓' : isFailed ? '×' : index + 1}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-800 truncate max-w-[150px]">{o.storeName}</p>
+                                <p className="text-xxs text-slate-400">
+                                  {isDelivered || isFailed ? (
+                                    <span className={isDelivered ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
+                                      {isDelivered ? 'Entregado' : 'Fallido'} {o.deliveryNotes ? ` - ${o.deliveryNotes}` : ''}
+                                    </span>
+                                  ) : o.storeAddress}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0 pl-2">
+                              {(!isDelivered && !isFailed) && (
+                                <span className="font-extrabold text-slate-800 text-xxs">S/ {o.total.toFixed(2)}</span>
+                              )}
+                              {route.status !== 'COMPLETED' && !isDelivered && !isFailed && (
+                                <button
+                                  type="button"
+                                  onClick={() => onAssignOrderToRoute(o.id, undefined)}
+                                  className="text-slate-400 hover:text-rose-500 p-1 rounded-md"
+                                  title="Quitar de esta ruta"
+                                >
+                                  &times;
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="py-6 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed border-slate-200">

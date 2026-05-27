@@ -8,6 +8,7 @@ import { InventoryView } from './components/InventoryView';
 import { PaymentsView } from './components/PaymentsView';
 import { ClientsView } from './components/ClientsView';
 import { ReportsView } from './components/ReportsView';
+import { DriverDeliveryView } from './components/DriverDeliveryView';
 import { Login } from './components/Login';
 import { InteractiveFlow } from './components/InteractiveFlow';
 
@@ -127,12 +128,26 @@ export default function App() {
     syncState(products, clients, nextOrders, routes, payments);
   };
 
-  const handleDeliverOrder = (orderId: string) => {
+  const handleUpdateOrderStatus = (orderId: string, status: 'DELIVERED' | 'FAILED', proofOfDelivery?: string, deliveryNotes?: string) => {
     const nextOrders = orders.map(o => 
-      o.id === orderId ? { ...o, status: 'DELIVERED' as const } : o
+      o.id === orderId ? { ...o, status, proofOfDelivery, deliveryNotes } : o
     );
     setOrders(nextOrders);
     syncState(products, clients, nextOrders, routes, payments);
+  };
+
+  const handleUpdateDriverLocation = (routeId: string, lat: number, lng: number) => {
+    const nextRoutes = routes.map(r => 
+      r.id === routeId 
+        ? { ...r, gpsLat: lat, gpsLng: lng, lastActiveTime: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) } 
+        : r
+    );
+    setRoutes(nextRoutes);
+    syncState(products, clients, orders, nextRoutes, payments);
+  };
+
+  const handleDeliverOrder = (orderId: string) => {
+    handleUpdateOrderStatus(orderId, 'DELIVERED');
   };
 
   const handleCreateRoute = (newRouteData: Omit<DeliveryRoute, 'id'>) => {
@@ -339,6 +354,16 @@ export default function App() {
                   onCreateRoute={handleCreateRoute}
                   onAssignOrderToRoute={handleAssignOrderToRoute}
                   onCompleteRoute={handleCompleteRoute}
+                />
+              )}
+
+              {currentView === ViewMode.DRIVER_DELIVERY && (
+                <DriverDeliveryView
+                  routes={routes}
+                  orders={orders}
+                  session={session}
+                  onUpdateOrderStatus={handleUpdateOrderStatus}
+                  onUpdateDriverLocation={handleUpdateDriverLocation}
                 />
               )}
 

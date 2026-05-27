@@ -41,7 +41,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Rutas por Zona',
       icon: Compass,
       roles: ['ADMIN'],
-      badge: 'Despacho'
+      badge: 'Admin'
+    },
+    {
+      id: ViewMode.DRIVER_DELIVERY,
+      label: 'Mi Ruta Hoy',
+      icon: Network,
+      roles: ['SELLER', 'ADMIN'],
+      badge: 'Reparto'
     },
     {
       id: ViewMode.INVENTORY,

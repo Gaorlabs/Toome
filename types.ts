@@ -34,7 +34,7 @@ export interface OrderItem {
   total: number;
 }
 
-export type OrderStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'DELIVERED' | 'FAILED' | 'CANCELLED';
 export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
 export type PaymentMethodType = 'CASH' | 'YAPE' | 'TRANSFER' | 'CREDIT_CARD';
 
@@ -58,6 +58,8 @@ export interface Order {
   shippingDate: string; // scheduled shipping date
   shippingRouteId?: string; // route ID this order is assigned to
   notes?: string;
+  proofOfDelivery?: string; // base64 image or signature
+  deliveryNotes?: string; // Notes left by the driver
 }
 
 export interface DeliveryRoute {
@@ -68,6 +70,9 @@ export interface DeliveryRoute {
   driverName: string;
   status: 'DRAFT' | 'ACTIVE' | 'COMPLETED';
   orderIds: string[];
+  gpsLat?: number;
+  gpsLng?: number;
+  lastActiveTime?: string;
 }
 
 export interface PaymentRecord {
@@ -88,6 +93,7 @@ export enum ViewMode {
   SELL_FIELD = 'SELL_FIELD',       // Toma de pedidos en campo
   ORDERS_CONFIRM = 'ORDERS_CONFIRM', // Confirmar y Generar/Programar despachos
   ROUTES = 'ROUTES',                 // Generación de Rutas por Zona
+  DRIVER_DELIVERY = 'DRIVER_DELIVERY', // App del Repartidor - Última milla
   INVENTORY = 'INVENTORY',           // Módulo de Inventario
   PAYMENTS = 'PAYMENTS',             // Gestión de Pagos/Cobros
   CLIENTS = 'CLIENTS',               // Clientes / Tiendas
